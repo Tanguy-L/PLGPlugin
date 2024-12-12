@@ -1,13 +1,11 @@
+using System.Collections.Concurrent;
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
-using System.Collections.Concurrent;
 
 namespace PLGPlugin
 {
-
     public class PlayerManager
     {
-
         private readonly ConcurrentDictionary<ulong, PlgPlayer> _players = new();
         private readonly Database _database;
 
@@ -17,21 +15,17 @@ namespace PLGPlugin
         }
 
         public PlgPlayer? GetPlayer(ulong steamId) =>
-                _players.TryGetValue(steamId, out var player) ? player : null;
+            _players.TryGetValue(steamId, out var player) ? player : null;
 
         public void AddOrUpdatePlayer(PlgPlayer player) =>
             _players.AddOrUpdate(player.SteamID, player, (_, _) => player);
 
-        public void RemovePlayer(ulong steamId) =>
-            _players.TryRemove(steamId, out _);
+        public void RemovePlayer(ulong steamId) => _players.TryRemove(steamId, out _);
 
-        public void ClearCache() =>
-          _players.Clear();
-
+        public void ClearCache() => _players.Clear();
 
         public async Task AddPlgPlayer(CCSPlayerController playerController)
         {
-
             if (playerController != null)
             {
                 var playerPLG = new PlgPlayer(playerController);
