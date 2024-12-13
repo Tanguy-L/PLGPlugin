@@ -1,7 +1,6 @@
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
-using CounterStrikeSharp.API.Core.Capabilities;
 using CounterStrikeSharp.API.Modules.Commands;
 
 namespace PLGPlugin;
@@ -49,5 +48,54 @@ public sealed partial class PLGPlugin
                 $"{playerPlg?.SteamID} ---- {playerPlg?.TeamName} ---- {playerPlg?.PlayerName} ---- {playerPlg?.Side}"
             );
         }
+    }
+
+    [ConsoleCommand("css_help", "Triggers provided command on the server")]
+    public void OnHelpCommand(CCSPlayerController? player, CommandInfo? command)
+    {
+        SendAvailableCommandsMessage(player);
+    }
+
+    [ConsoleCommand("css_unpause", "Triggers tes commandasd on the server")]
+    public void OnUnpauseCommand(CCSPlayerController? player, CommandInfo? command)
+    {
+        UnPauseMatch(player, command);
+    }
+
+    [ConsoleCommand("css_warmup", "Warmup")]
+    public void Warmup(CCSPlayerController? player, CommandInfo? command)
+    {
+        ExecWarmup();
+    }
+
+    [ConsoleCommand("css_map", "Changes the map using changelevel")]
+    public void OnChangeMapCommand(CCSPlayerController? player, CommandInfo command)
+    {
+        var mapName = command.ArgByIndex(1);
+        HandleMapChangeCommand(player, mapName);
+    }
+
+    [ConsoleCommand("css_start", "Warmup")]
+    public void StartLive(CCSPlayerController? player, CommandInfo? command)
+    {
+        StartLive();
+    }
+
+    [ConsoleCommand("css_knife", "knife")]
+    public void StartKnife(CCSPlayerController? player, CommandInfo? command)
+    {
+        StartKnife();
+    }
+
+    [ConsoleCommand("css_switch", "switch")]
+    public void Switch(CCSPlayerController? player, CommandInfo? command)
+    {
+        Server.ExecuteCommand("mp_swapteams;");
+    }
+
+    [ConsoleCommand("css_pause", "Ttes")]
+    public void OnPauseCommand(CCSPlayerController? player, CommandInfo? command)
+    {
+        PauseMatch(player, command);
     }
 }

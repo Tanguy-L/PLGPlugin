@@ -24,6 +24,30 @@ namespace PLGPlugin
 
         public void ClearCache() => _players.Clear();
 
+        public void UpdatePlayerWithData(
+            CCSPlayerController playerController,
+            PlayerFromDB playerDB
+        )
+        {
+            if (playerController == null)
+                return;
+
+            var playerPLG = new PlgPlayer(playerController);
+            if (playerDB != null)
+            {
+                playerPLG.Side = playerDB.Side;
+                playerPLG.TeamName = playerDB.TeamName;
+                playerPLG.SmokeColor = playerDB.SmokeColor;
+                playerPLG.DiscordId = playerDB.DiscordId;
+                playerPLG.TeamChannelId = playerDB.TeamChannelId;
+                if (playerDB.Weight != null)
+                {
+                    playerPLG.Weight = playerDB.Weight.ToString();
+                }
+            }
+            AddOrUpdatePlayer(playerPLG);
+        }
+
         public async Task AddPlgPlayer(CCSPlayerController playerController)
         {
             if (playerController != null)

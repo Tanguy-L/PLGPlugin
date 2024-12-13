@@ -64,6 +64,13 @@ public sealed partial class PLGPlugin : BasePlugin, IPluginConfig<PlgConfig>
             { ".load", LoadPlayerCache },
             { ".list", ListPlayers },
             { ".colors", PrintColors },
+            { ".warmup", Warmup },
+            { ".knife", StartKnife },
+            { ".start", StartLive },
+            { ".switch", Switch },
+            { ".help", OnHelpCommand },
+            { ".pause", OnPauseCommand },
+            { ".unpause", OnUnpauseCommand },
         };
 
         // Chat event
@@ -72,11 +79,10 @@ public sealed partial class PLGPlugin : BasePlugin, IPluginConfig<PlgConfig>
             (@event, info) =>
             {
                 int currentVersion = Api.GetVersion();
-                // You need the +1 to make it works
                 int index = @event.Userid + 1;
                 CCSPlayerController? playerController = Utilities.GetPlayerFromIndex(index);
 
-                if (playerController == null || _database == null)
+                if (playerController == null || _database == null || _playerManager == null)
                 {
                     return HookResult.Continue;
                 }
@@ -84,12 +90,31 @@ public sealed partial class PLGPlugin : BasePlugin, IPluginConfig<PlgConfig>
                 var steamId = playerController.SteamID;
                 var originalMessage = @event.Text.Trim();
                 var message = @event.Text.Trim().ToLower();
+                var parts = message.Split(' ');
 
                 if (commandActions.ContainsKey(message))
                 {
                     commandActions[message](playerController, null);
                 }
-                bool predicate = string.Equals(message, ".smoke");
+
+                if (message.StartsWith(".map"))
+                {
+                    var messageCommandArg =
+                        parts.Length > 1 ? string.Join(' ', parts.Skip(1)) : string.Empty;
+
+                    HandleMapChangeCommand(playerController, messageCommandArg);
+                    return HookResult.Continue;
+                }
+
+                if (message.StartsWith(".volume"))
+                {
+                    var messageCommandArg =
+                        parts.Length > 1 ? string.Join(' ', parts.Skip(1)) : string.Empty;
+
+                    playerController?.ExecuteClientCommand($"snd_toolvolume {messageCommandArg}");
+                }
+
+                bool predicate = message.StartsWith(".smoke");
 
                 if (predicate)
                 {
@@ -99,7 +124,7 @@ public sealed partial class PLGPlugin : BasePlugin, IPluginConfig<PlgConfig>
 
                     Server.NextFrame(async () =>
                     {
-                        await _database.SetSmoke(steamId, commandArg);
+                        await HandleUpdateSmoke(playerController, commandArg);
                     });
                 }
                 return HookResult.Continue;

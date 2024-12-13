@@ -66,7 +66,7 @@ namespace PLGPlugin
                 await using var connection = await GetOpenConnectionAsync();
 
                 string query =
-                    $@"UPDATE members SET smoke_color = {color} WHERE steam_id = {steamId}";
+                    $@"UPDATE members SET smoke_color = '{color}' WHERE steam_id = {steamId}";
                 await connection.ExecuteAsync(query);
             }
             catch (Exception ex)
