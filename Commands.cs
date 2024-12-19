@@ -2,6 +2,7 @@ using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
 using CounterStrikeSharp.API.Modules.Commands;
+using CounterStrikeSharp.API.Modules.Utils;
 
 namespace PLGPlugin;
 
@@ -93,9 +94,83 @@ public sealed partial class PLGPlugin
         Server.ExecuteCommand("mp_swapteams;");
     }
 
-    [ConsoleCommand("css_pause", "Ttes")]
+    [ConsoleCommand("css_pause", "pause the match")]
     public void OnPauseCommand(CCSPlayerController? player, CommandInfo? command)
     {
         PauseMatch(player, command);
+    }
+
+    [ConsoleCommand("css_set_teams", "Make every player in their teams based on DB")]
+    public void OnSetTeams(CCSPlayerController? player, CommandInfo? command)
+    {
+        Console.WriteLine("INFO Set teams !");
+
+        if (_playerManager == null)
+        {
+            return;
+        }
+
+        var players = Utilities.GetPlayers();
+
+        foreach (var playerController in players)
+        {
+            var plgPlayer = _playerManager.GetPlayer(playerController.SteamID);
+            if (plgPlayer == null)
+            {
+                return;
+            }
+            var sideInDb = plgPlayer.Side;
+            var sideInGame = playerController.Team;
+
+            if (!Enum.TryParse<CsTeam>(sideInDb, out CsTeam sideInDbParsed))
+            {
+                Console.WriteLine($"Could not parse team value: {sideInDb}");
+                return;
+            }
+
+            if (sideInGame != sideInDbParsed)
+            {
+                playerController.SwitchTeam(sideInDbParsed);
+                playerController.CommitSuicide(false, true);
+            }
+        }
+    }
+
+    // Pretty sure its not working, rewrite this bad boy with Task.RUN
+    [ConsoleCommand("css_group", "Group players from the channels")]
+    private void OnGroupPlayers(CCSPlayerController? player, CommandInfo? commandInfo)
+    {
+        var stateCommands = new List<string>()
+        {
+            "!group-parties",
+            "Regroupement des channels",
+            "Echec du regroupement",
+        };
+
+        Server.NextFrame(() =>
+        {
+            Task.Run(async () =>
+            {
+                await ExecuteCommandDiscord(stateCommands, commandInfo);
+            });
+        });
+    }
+
+    [ConsoleCommand("css_split", "Split players in the 2 channels")]
+    private void OnSplitPlayers(CCSPlayerController? player, CommandInfo? commandInfo)
+    {
+        var stateCommands = new List<string>()
+        {
+            "!split-parties",
+            "Séparation des channels",
+            "Echec de la séparation",
+        };
+        Server.NextFrame(() =>
+        {
+            Task.Run(async () =>
+            {
+                await ExecuteCommandDiscord(stateCommands, commandInfo);
+            });
+        });
     }
 }

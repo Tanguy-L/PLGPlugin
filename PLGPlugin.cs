@@ -27,7 +27,10 @@ public sealed class MySQLConfig
 public class PlgConfig : BasePluginConfig
 {
     [JsonPropertyName("cfg_folder")]
-    public string CfgFolder { get; set; } = "MatchPlg/";
+    public string CfgFolder { get; set; } = "PLG/";
+
+    [JsonPropertyName("discord_webhook")]
+    public string DiscordWebhook { get; set; } = "";
 
     [JsonPropertyName("my_sql_config")]
     public MySQLConfig MySQLConfig { get; set; } = new MySQLConfig();
@@ -71,6 +74,9 @@ public sealed partial class PLGPlugin : BasePlugin, IPluginConfig<PlgConfig>
             { ".help", OnHelpCommand },
             { ".pause", OnPauseCommand },
             { ".unpause", OnUnpauseCommand },
+            { ".set_teams", OnSetTeams },
+            { ".group", OnGroupPlayers },
+            { ".split", OnSplitPlayers },
         };
 
         // Chat event
@@ -124,7 +130,10 @@ public sealed partial class PLGPlugin : BasePlugin, IPluginConfig<PlgConfig>
 
                     Server.NextFrame(async () =>
                     {
-                        await HandleUpdateSmoke(playerController, commandArg);
+                        if (playerController != null)
+                        {
+                            await HandleUpdateSmoke(playerController, commandArg);
+                        }
                     });
                 }
                 return HookResult.Continue;

@@ -1,3 +1,4 @@
+using System.Text;
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Commands;
@@ -71,7 +72,7 @@ namespace PLGPlugin
 
         public void ExecCfg(string nameFile)
         {
-            var relativePath = Path.Join("PLG/" + nameFile);
+            var relativePath = Path.Join(Config.CfgFolder + nameFile);
             Server.ExecuteCommand($"exec {relativePath}");
         }
 
@@ -127,6 +128,27 @@ namespace PLGPlugin
             {
                 Server.ExecuteCommand($"bot_kick");
                 Server.ExecuteCommand($"changelevel \"{mapName}\"");
+            }
+        }
+
+        async Task ExecuteCommandDiscord(List<string> stateCommand, CommandInfo? command)
+        {
+            var payload = $"{{\"content\": \"{stateCommand[0]}\" }}";
+            using var client = new HttpClient();
+            var content = new StringContent(payload, Encoding.UTF8, "application/json");
+
+            try
+            {
+                var response = await client.PostAsync(Config.DiscordWebhook, content);
+                Console.WriteLine(
+                    response.IsSuccessStatusCode
+                        ? "Message sent successfully !"
+                        : $"Failed to send message. Status code: {response.StatusCode}"
+                );
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"An error occurred: {e.Message}");
             }
         }
     }
