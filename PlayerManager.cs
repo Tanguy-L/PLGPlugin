@@ -68,6 +68,10 @@ namespace PLGPlugin
                         playerPLG.Weight = playerInfosDB.Weight.ToString();
                     }
                 }
+                else
+                {
+                    await _database.CreatePlayerInDB(playerPLG);
+                }
                 AddOrUpdatePlayer(playerPLG);
             }
         }

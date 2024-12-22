@@ -80,6 +80,7 @@ public sealed partial class PLGPlugin
     public void StartLive(CCSPlayerController? player, CommandInfo? command)
     {
         StartLive();
+        RecordTheDemo();
     }
 
     [ConsoleCommand("css_knife", "knife")]
@@ -121,6 +122,11 @@ public sealed partial class PLGPlugin
             }
             var sideInDb = plgPlayer.Side;
             var sideInGame = playerController.Team;
+
+            if (sideInDb == null)
+            {
+                return;
+            }
 
             if (!Enum.TryParse<CsTeam>(sideInDb, out CsTeam sideInDbParsed))
             {

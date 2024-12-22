@@ -75,6 +75,31 @@ namespace PLGPlugin
             }
         }
 
+        public async Task CreatePlayerInDB(PlgPlayer player)
+        {
+            try
+            {
+                await using var connection = await GetOpenConnectionAsync();
+                string query =
+                    @"INSERT INTO plg.members (steam_id, weight, is_logged_in, smoke_color, discord_id, discord_name)
+                             VALUES (@SteamID, @Weight, @IsLoggedIn, @SmokeColor, 0, @DiscordName);
+                             SELECT LAST_INSERT_ID();";
+                var parameters = new
+                {
+                    SteamID = player.SteamID,
+                    Weight = 6, // Default weight, adjust as needed
+                    IsLoggedIn = false,
+                    SmokeColor = "red",
+                    DiscordName = player.PlayerName ?? "test",
+                };
+                await connection.ExecuteAsync(query, parameters);
+            }
+            catch (System.Exception)
+            {
+                throw;
+            }
+        }
+
         public async Task<PlayerFromDB?> GetPlayerById(ulong steamId)
         {
             try
@@ -101,7 +126,7 @@ namespace PLGPlugin
                      m.steam_id = @SteamID
                  ;";
                 var parameters = new { SteamId = steamId.ToString() };
-                PlayerFromDB? playerDB = await connection.QueryFirstAsync<PlayerFromDB>(
+                PlayerFromDB? playerDB = await connection.QueryFirstOrDefaultAsync<PlayerFromDB>(
                     query,
                     parameters
                 );

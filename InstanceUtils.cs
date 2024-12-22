@@ -91,6 +91,25 @@ namespace PLGPlugin
             ExecCfg("match.cfg");
         }
 
+        public void RecordTheDemo()
+        {
+            string formattedTime = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
+            string map = Server.MapName;
+            Console.WriteLine($"--------------- {map}");
+            string titleDemo = formattedTime + "_" + map + ".dem";
+            Console.WriteLine($"--------------------- {titleDemo}");
+            string path = Server.GameDirectory + "/csgo/demos";
+            string? directoryPath = Path.GetDirectoryName(path);
+            if (directoryPath != null)
+            {
+                if (!Directory.Exists(path))
+                {
+                    Directory.CreateDirectory(path);
+                }
+            }
+            Server.ExecuteCommand($"tv_record ./demos/{titleDemo}");
+        }
+
         private void PauseMatch(CCSPlayerController? player, CommandInfo? command)
         {
             Server.ExecuteCommand("mp_pause_match");
