@@ -10,6 +10,12 @@ namespace PLGPlugin
             RegisterEventHandler<EventPlayerConnectFull>(OnPlayerConnectFull);
             RegisterEventHandler<EventPlayerDisconnect>(OnPlayerDisconnect);
             RegisterListener<Listeners.OnEntitySpawned>(OnEntitySpawnedHandler);
+            /*RegisterListener<EventCsWinPanelMatch>(WinPanelEventHandler);*/
+        }
+
+        private void RegisterListener<T>(Func<T, GameEventInfo, HookResult> winPanelEventHandler)
+        {
+            throw new NotImplementedException();
         }
 
         public HookResult OnPlayerConnectFull(EventPlayerConnectFull @event, GameEventInfo info)
@@ -25,6 +31,12 @@ namespace PLGPlugin
                     });
                 }
             }
+            return HookResult.Continue;
+        }
+
+        public HookResult WinPanelEventHandler(EventCsWinPanelMatch @event, GameEventInfo info)
+        {
+            Server.ExecuteCommand("tv_stoprecord;");
             return HookResult.Continue;
         }
 

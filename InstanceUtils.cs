@@ -95,9 +95,7 @@ namespace PLGPlugin
         {
             string formattedTime = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
             string map = Server.MapName;
-            Console.WriteLine($"--------------- {map}");
             string titleDemo = formattedTime + "_" + map + ".dem";
-            Console.WriteLine($"--------------------- {titleDemo}");
             string path = Server.GameDirectory + "/csgo/demos";
             string? directoryPath = Path.GetDirectoryName(path);
             if (directoryPath != null)
