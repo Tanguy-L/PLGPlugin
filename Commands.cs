@@ -45,9 +45,12 @@ public sealed partial class PLGPlugin
         {
             var steamiId = playerCurrent.SteamID;
             var playerPlg = _playerManager.GetPlayer(steamiId);
-            player.PrintToChat(
-                $"{playerPlg?.SteamID} ---- {playerPlg?.TeamName} ---- {playerPlg?.PlayerName} ---- {playerPlg?.Side}"
-            );
+            if (playerPlg != null && playerPlg.IsValid)
+            {
+                player.PrintToChat(
+                    $"{playerPlg?.SteamID} ---- {playerPlg?.TeamName} ---- {playerPlg?.PlayerName} ---- {playerPlg?.Side}"
+                );
+            }
         }
     }
 
@@ -57,7 +60,17 @@ public sealed partial class PLGPlugin
         SendAvailableCommandsMessage(player);
     }
 
-    [ConsoleCommand("css_unpause", "Triggers tes commandasd on the server")]
+    [ConsoleCommand("css_test", "Dont test that command !")]
+    public void OnTestCommand(CCSPlayerController? player, CommandInfo? command)
+    {
+        if (player == null)
+        {
+            return;
+        }
+        var canBan = CanYouDoThat(player, "@css/generic");
+    }
+
+    [ConsoleCommand("css_unpause", "Unpause the match !")]
     public void OnUnpauseCommand(CCSPlayerController? player, CommandInfo? command)
     {
         UnPauseMatch(player, command);
@@ -81,6 +94,43 @@ public sealed partial class PLGPlugin
     {
         StartLive();
         RecordTheDemo();
+    }
+
+    [ConsoleCommand("css_lbackups", "Get 3 last backups files")]
+    public void OnGetBackups(CCSPlayerController? player, CommandInfo? command)
+    {
+        var map = Server.MapName;
+        var date = DateTime.Now;
+        var parsedDate = date.ToString("yyyyMMdd");
+        var path = Server.GameDirectory + "/csgo";
+        string[] fileEntries = Directory.GetFiles(path);
+
+        var files = Directory.EnumerateFiles(
+            path,
+            $"{parsedDate}_{map}*.txt",
+            SearchOption.AllDirectories
+        );
+
+        var lastOnes = files
+            .TakeLast(3)
+            .ToList()
+            .Select(e =>
+            {
+                var split = e.Split("/");
+                return split[split.Count() - 1];
+            });
+
+        foreach (var filename in lastOnes)
+        {
+            player?.PrintToChat(filename);
+        }
+    }
+
+    [ConsoleCommand("css_restore", "restore a backup file by filename")]
+    public void OnRestoreCommand(CCSPlayerController? player, CommandInfo command)
+    {
+        var filename = command.ArgByIndex(1);
+        HandleRestore(player, filename);
     }
 
     [ConsoleCommand("css_knife", "knife")]

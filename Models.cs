@@ -17,24 +17,21 @@ public class PlgPlayer
     public string? TeamName { get; set; }
     public string? TeamChannelId { get; set; }
     public bool IsReady { get; set; }
+    public bool IsValid { get; set; }
+    public bool IsPlayer { get; set; }
 
     public PlgPlayer(CCSPlayerController controller)
     {
         SteamID = controller.SteamID;
         PlayerName = controller.PlayerName;
         IsReady = false;
-    }
 
-    public bool isValid(CCSPlayerController controller)
-    {
-        return controller.IsValid == true
+        IsValid =
+            controller.IsValid == true
             && controller.PlayerPawn?.IsValid == true
             && controller.Connected == PlayerConnectedState.PlayerConnected;
-    }
 
-    public bool IsPlayer(CCSPlayerController controller)
-    {
-        return !controller.IsBot && !controller.IsHLTV;
+        IsPlayer = !controller.IsBot && !controller.IsHLTV;
     }
 }
 

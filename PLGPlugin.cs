@@ -44,6 +44,7 @@ public sealed partial class PLGPlugin : BasePlugin, IPluginConfig<PlgConfig>
     public PlgConfig Config { get; set; } = new PlgConfig();
     public PlayerManager? _playerManager;
     public Database? _database;
+    private BackupManager? _backup;
 
     public void OnConfigParsed(PlgConfig config)
     {
@@ -53,6 +54,7 @@ public sealed partial class PLGPlugin : BasePlugin, IPluginConfig<PlgConfig>
         if (_database != null)
         {
             _playerManager = new(_database);
+            _backup = new();
         }
     }
 
@@ -74,8 +76,10 @@ public sealed partial class PLGPlugin : BasePlugin, IPluginConfig<PlgConfig>
             { ".pause", OnPauseCommand },
             { ".unpause", OnUnpauseCommand },
             { ".set_teams", OnSetTeams },
-            { ".group", OnGroupPlayers },
-            { ".split", OnSplitPlayers },
+            { ".dgroup", OnGroupPlayers },
+            { ".dsplit", OnSplitPlayers },
+            { ".lbackups", OnGetBackups },
+            { ".test", OnTestCommand },
         };
 
         // Chat event
@@ -108,6 +112,15 @@ public sealed partial class PLGPlugin : BasePlugin, IPluginConfig<PlgConfig>
                         parts.Length > 1 ? string.Join(' ', parts.Skip(1)) : string.Empty;
 
                     HandleMapChangeCommand(playerController, messageCommandArg);
+                    return HookResult.Continue;
+                }
+
+                if (message.StartsWith(".restore"))
+                {
+                    var messageCommandArg =
+                        parts.Length > 1 ? string.Join(' ', parts.Skip(1)) : string.Empty;
+
+                    HandleRestore(playerController, messageCommandArg);
                     return HookResult.Continue;
                 }
 

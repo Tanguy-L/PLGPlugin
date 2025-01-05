@@ -10,12 +10,18 @@ namespace PLGPlugin
             RegisterEventHandler<EventPlayerConnectFull>(OnPlayerConnectFull);
             RegisterEventHandler<EventPlayerDisconnect>(OnPlayerDisconnect);
             RegisterListener<Listeners.OnEntitySpawned>(OnEntitySpawnedHandler);
-            /*RegisterListener<EventCsWinPanelMatch>(WinPanelEventHandler);*/
+            RegisterEventHandler<EventRoundPoststart>(OnRoundPostStart);
+            RegisterEventHandler<EventCsWinPanelMatch>(WinPanelEventHandler);
         }
 
-        private void RegisterListener<T>(Func<T, GameEventInfo, HookResult> winPanelEventHandler)
+        private HookResult OnRoundPostStart(EventRoundPoststart @event, GameEventInfo info)
         {
-            throw new NotImplementedException();
+            var map = Server.MapName;
+            var date = DateTime.Now;
+
+            // TODO Restore the backup with match id !
+
+            return HookResult.Continue;
         }
 
         public HookResult OnPlayerConnectFull(EventPlayerConnectFull @event, GameEventInfo info)

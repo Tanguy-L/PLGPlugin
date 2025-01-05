@@ -1,6 +1,7 @@
 using System.Text;
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
+using CounterStrikeSharp.API.Modules.Admin;
 using CounterStrikeSharp.API.Modules.Commands;
 using CounterStrikeSharp.API.Modules.Utils;
 
@@ -47,9 +48,27 @@ namespace PLGPlugin
             Server.PrintToChatAll($"{ChatPrefix} {message}");
         }
 
-        public static void Log(string message)
+        // ----------- FLAGS ----------------
+        // @css/reservation # Reserved slot access.
+        // @css/generic # Generic admin.
+        // @css/kick # Kick other players.
+        // @css/ban # Ban other players.
+        // @css/unban # Remove bans.
+        // @css/vip # General vip status.
+        // @css/slay # Slay/harm other players.
+        // @css/changemap # Change the map or major gameplay features.
+        // @css/cvar # Change most cvars.
+        // @css/config # Execute config files.
+        // @css/chat # Special chat privileges.
+        // @css/vote # Start or create votes.
+        // @css/password # Set a password on the server.
+        // @css/rcon # Use RCON commands.
+        // @css/cheats # Change sv_cheats or use cheating commands.
+        // @css/root # Magically enables all flags and ignores immunity values.
+        // ----------- FLAGS ----------------
+        public bool CanYouDoThat(CCSPlayerController player, string flag)
         {
-            Console.WriteLine($"[MATCH CRAFT PLG] {message}");
+            return AdminManager.PlayerHasPermissions(player, flag);
         }
 
         public static void ReplyToUserCommand(CCSPlayerController? player, string message)
@@ -122,11 +141,22 @@ namespace PLGPlugin
         {
             if (player == null)
                 return;
-            ReplyToUserCommand(player, $"{ChatColors.Red}----[INFOS]----{ChatColors.Default}");
-            ReplyToUserCommand(player, "Match : .start .warmup .knife .switch");
-            ReplyToUserCommand(player, "Discord: .dgroup .dsplit");
-            ReplyToUserCommand(player, "Pause : .pause .unpause");
-            ReplyToUserCommand(player, "DB : .set_teams");
+
+            if (CanYouDoThat(player, "@css/generic"))
+            {
+                ReplyToUserCommand(
+                    player,
+                    $"{ChatColors.Red}----[INFOS ADMINS]----{ChatColors.Default}"
+                );
+                ReplyToUserCommand(player, "Match : .start .warmup .knife .switch");
+                ReplyToUserCommand(player, "Backups : .lbackups, .restore <filename>");
+                ReplyToUserCommand(player, "Discord: .dgroup .dsplit");
+                ReplyToUserCommand(player, "Pause : .pause .unpause");
+                ReplyToUserCommand(player, "Players : .list");
+                ReplyToUserCommand(player, "DB : .set_teams");
+            }
+            ReplyToUserCommand(player, $"{ChatColors.White}----[INFOS]----{ChatColors.Default}");
+            ReplyToUserCommand(player, "smoke : .smoke <red>, .colors");
         }
 
         private void HandleMapChangeCommand(CCSPlayerController? player, string mapName)
@@ -146,6 +176,11 @@ namespace PLGPlugin
                 Server.ExecuteCommand($"bot_kick");
                 Server.ExecuteCommand($"changelevel \"{mapName}\"");
             }
+        }
+
+        private void HandleRestore(CCSPlayerController? player, string filename)
+        {
+            Server.ExecuteCommand($"mp_backup_restore_load_file {filename}");
         }
 
         async Task ExecuteCommandDiscord(List<string> stateCommand, CommandInfo? command)
