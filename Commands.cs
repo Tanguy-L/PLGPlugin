@@ -13,10 +13,15 @@ public sealed partial class PLGPlugin
     {
         if (_playerManager != null)
         {
-            Server.NextFrame(async () =>
+            var allPlayers = Utilities.GetPlayers();
+            foreach (var playerPlg in allPlayers)
             {
-                await _playerManager.LoadCache();
-            });
+                _playerManager.ClearCache();
+                Server.NextFrame(async () =>
+                {
+                    await _playerManager.AddPlgPlayer(playerPlg);
+                });
+            }
         }
     }
 
