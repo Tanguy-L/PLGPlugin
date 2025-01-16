@@ -79,8 +79,10 @@ namespace PLGPlugin
         public async Task LoadCache()
         {
             var allPlayers = Utilities.GetPlayers();
-            var tasks = allPlayers.Select(AddPlgPlayer);
-            await Task.WhenAll(tasks);
+            foreach (var player in allPlayers)
+            {
+                await AddPlgPlayer(player);
+            }
         }
     }
 }

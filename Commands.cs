@@ -20,6 +20,18 @@ public sealed partial class PLGPlugin
         }
     }
 
+    [ConsoleCommand("css_dgroup", "Regroup on the discord")]
+    public void OnGroupPlayers(CCSPlayerController? player, CommandInfo? command)
+    {
+        Console.WriteLine("test1");
+    }
+
+    [ConsoleCommand("css_dgroup", "Regroup on the discord")]
+    public void OnSplitPlayers(CCSPlayerController? player, CommandInfo? command)
+    {
+        Console.WriteLine("test2");
+    }
+
     [ConsoleCommand("css_colors", "Print to chat all colors for smokes")]
     public void PrintColors(CCSPlayerController? player, CommandInfo? command)
     {
@@ -28,9 +40,8 @@ public sealed partial class PLGPlugin
             return;
         }
         var allColors = SmokeColorPalette.GetAllColorKeys();
-        var stringColors = string.Join("--", allColors);
+        var stringColors = string.Join("\n", allColors);
         player.PrintToChat(stringColors);
-        player.PrintToChat("coucou!");
     }
 
     [ConsoleCommand("css_list", "Show list of the players")]
@@ -190,43 +201,5 @@ public sealed partial class PLGPlugin
                 playerController.CommitSuicide(false, true);
             }
         }
-    }
-
-    // Pretty sure its not working, rewrite this bad boy with Task.RUN
-    [ConsoleCommand("css_group", "Group players from the channels")]
-    private void OnGroupPlayers(CCSPlayerController? player, CommandInfo? commandInfo)
-    {
-        var stateCommands = new List<string>()
-        {
-            "!group-parties",
-            "Regroupement des channels",
-            "Echec du regroupement",
-        };
-
-        Server.NextFrame(() =>
-        {
-            Task.Run(async () =>
-            {
-                await ExecuteCommandDiscord(stateCommands, commandInfo);
-            });
-        });
-    }
-
-    [ConsoleCommand("css_split", "Split players in the 2 channels")]
-    private void OnSplitPlayers(CCSPlayerController? player, CommandInfo? commandInfo)
-    {
-        var stateCommands = new List<string>()
-        {
-            "!split-parties",
-            "Séparation des channels",
-            "Echec de la séparation",
-        };
-        Server.NextFrame(() =>
-        {
-            Task.Run(async () =>
-            {
-                await ExecuteCommandDiscord(stateCommands, commandInfo);
-            });
-        });
     }
 }

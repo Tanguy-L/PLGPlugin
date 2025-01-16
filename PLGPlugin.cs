@@ -45,6 +45,7 @@ public sealed partial class PLGPlugin : BasePlugin, IPluginConfig<PlgConfig>
     public PlayerManager? _playerManager;
     public Database? _database;
     private BackupManager? _backup;
+    private string? _webhook;
 
     public void OnConfigParsed(PlgConfig config)
     {
@@ -56,6 +57,7 @@ public sealed partial class PLGPlugin : BasePlugin, IPluginConfig<PlgConfig>
             _playerManager = new(_database);
             _backup = new();
         }
+        _webhook = config.DiscordWebhook;
     }
 
     public override void Load(bool hotReload)

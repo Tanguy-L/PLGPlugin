@@ -182,26 +182,5 @@ namespace PLGPlugin
         {
             Server.ExecuteCommand($"mp_backup_restore_load_file {filename}");
         }
-
-        async Task ExecuteCommandDiscord(List<string> stateCommand, CommandInfo? command)
-        {
-            var payload = $"{{\"content\": \"{stateCommand[0]}\" }}";
-            using var client = new HttpClient();
-            var content = new StringContent(payload, Encoding.UTF8, "application/json");
-
-            try
-            {
-                var response = await client.PostAsync(Config.DiscordWebhook, content);
-                Console.WriteLine(
-                    response.IsSuccessStatusCode
-                        ? "Message sent successfully !"
-                        : $"Failed to send message. Status code: {response.StatusCode}"
-                );
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine($"An error occurred: {e.Message}");
-            }
-        }
     }
 }
