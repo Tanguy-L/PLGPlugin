@@ -1,4 +1,5 @@
 using CounterStrikeSharp.API;
+using CounterStrikeSharp.API.Modules.Cvars;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
 using CounterStrikeSharp.API.Modules.Commands;
@@ -22,6 +23,51 @@ public sealed partial class PLGPlugin
                     await _playerManager.AddPlgPlayer(playerPlg);
                 });
             }
+        }
+    }
+
+    public async void OnReady(CCSPlayerController? player, CommandInfo? command)
+    {
+        if (player == null)
+        {
+            return;
+        }
+        if (_matchManager == null)
+        {
+            return;
+        }
+        var side = player.Team;
+        if (side == CsTeam.Terrorist)
+        {
+            _matchManager.SetTeamReady(0, true);
+        }
+        if (side == CsTeam.CounterTerrorist)
+        {
+            _matchManager.SetTeamReady(1, true);
+        }
+        if (_logger == null)
+        {
+            return;
+        }
+
+        if (_matchManager.IsAllTeamReady())
+        {
+            var hostnameValue = ConVar.Find("hostname");
+            if (hostnameValue == null || hostnameValue.StringValue == null)
+            {
+                _logger.LogError("hostname variable not found");
+                return;
+            }
+            var hostname = hostnameValue.StringValue;
+            var mapName = Server.MapName;
+            await Task.Run(async () =>
+            {
+                await _matchManager.NewMatch(hostname, mapName);
+                await Server.NextFrameAsync(() =>
+                {
+                    _matchManager.StartTheMatch();
+                });
+            });
         }
     }
 
@@ -165,6 +211,19 @@ public sealed partial class PLGPlugin
     public void OnPauseCommand(CCSPlayerController? player, CommandInfo? command)
     {
         PauseMatch(player, command);
+    }
+
+    [ConsoleCommand("css_match", "start a PLG match")]
+    public void OnStartPLGMatch(CCSPlayerController? player, CommandInfo? command)
+    {
+        Server.ExecuteCommand("css_set_teams");
+
+        // StartKnife();
+
+
+
+
+
     }
 
     [ConsoleCommand("css_set_teams", "Make every player in their teams based on DB")]

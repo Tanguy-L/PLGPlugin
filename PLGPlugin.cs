@@ -1,9 +1,12 @@
 ﻿using System.Text.Json.Serialization;
+using Microsoft.Extensions.Logging;
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Commands;
+using CounterStrikeSharp.API.Modules.Events;
 
 namespace PLGPlugin;
+
 
 public sealed class MySQLConfig
 {
@@ -28,6 +31,9 @@ public class PlgConfig : BasePluginConfig
     [JsonPropertyName("cfg_folder")]
     public string CfgFolder { get; set; } = "PLG/";
 
+    [JsonPropertyName("start_on_match")]
+    public bool StartOnMatch { get; set; } = true;
+
     [JsonPropertyName("discord_webhook")]
     public string DiscordWebhook { get; set; } = "";
 
@@ -45,10 +51,13 @@ public sealed partial class PLGPlugin : BasePlugin, IPluginConfig<PlgConfig>
     public PlayerManager? _playerManager;
     public Database? _database;
     private BackupManager? _backup;
+    public MatchManager? _matchManager;
+    private ILogger<PLGPlugin>? _logger;
     private string? _webhook;
 
     public void OnConfigParsed(PlgConfig config)
     {
+
         Config = config;
         _database = new(config.MySQLConfig);
 
@@ -58,18 +67,34 @@ public sealed partial class PLGPlugin : BasePlugin, IPluginConfig<PlgConfig>
             _backup = new();
         }
         _webhook = config.DiscordWebhook;
+
+        if (_database != null && _webhook != null && _playerManager != null && _backup != null)
+        {
+            _matchManager = new MatchManager(_database, _playerManager, config, _backup);
+            if (config.StartOnMatch)
+            {
+                // Just put the state on Setup
+                // In this state, peoples have to write !ready to start the match
+                _matchManager.InitSetupMatch();
+            }
+        }
     }
 
     public override void Load(bool hotReload)
     {
+
+        var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
+        _logger = loggerFactory.CreateLogger<PLGPlugin>();
         InitializeEvents();
 
         // Simple command - Event bind
         Dictionary<string, Action<CCSPlayerController?, CommandInfo?>> commandActions = new()
         {
             { ".load", LoadPlayerCache },
+            { ".ready", OnReady },
             { ".list", ListPlayers },
             { ".colors", PrintColors },
+            { ".match", OnStartPLGMatch},
             { ".warmup", Warmup },
             { ".knife", StartKnife },
             { ".start", StartLive },
@@ -83,6 +108,7 @@ public sealed partial class PLGPlugin : BasePlugin, IPluginConfig<PlgConfig>
             { ".lbackups", OnGetBackups },
             { ".test", OnTestCommand },
         };
+
 
         // Chat event
         // it need for using commands with arguments like .smoke red

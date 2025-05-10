@@ -1,8 +1,17 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using CounterStrikeSharp.API.Core;
+using CounterStrikeSharp.API.Modules.Utils;
 
 namespace PLGPlugin;
+
+public class TeamPLG
+{
+    public required string Name { get; set; }
+    public CsTeam Side { get; set; }
+    public required int Id { get; set; }
+    public required List<string> Players { get; set; }
+}
 
 #region Player Models
 public class PlgPlayer

@@ -1,5 +1,6 @@
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
+using CounterStrikeSharp.API.Modules.Utils;
 
 namespace PLGPlugin
 {
@@ -12,6 +13,23 @@ namespace PLGPlugin
             RegisterListener<Listeners.OnEntitySpawned>(OnEntitySpawnedHandler);
             RegisterEventHandler<EventRoundPoststart>(OnRoundPostStart);
             RegisterEventHandler<EventCsWinPanelMatch>(WinPanelEventHandler);
+            RegisterEventHandler<EventRoundEnd>(OnRoundEnd);
+        }
+
+        public HookResult OnRoundEnd(EventRoundEnd @event, GameEventInfo info)
+        {
+            var winnerSide = (CsTeam)@event.Winner;
+            if (_matchManager == null)
+            {
+                _logger.LogError("MatchManager is null");
+                return HookResult.Continue;
+            }
+            if (_matchManager.state == MatchManager.MatchState.Knife)
+            {
+                _matchManager.DetermineTheKnifeWinner(winnerSide);
+            }
+
+            return HookResult.Continue;
         }
 
         private HookResult OnRoundPostStart(EventRoundPoststart @event, GameEventInfo info)

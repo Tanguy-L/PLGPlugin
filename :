@@ -1,5 +1,4 @@
 using Dapper;
-using CounterStrikeSharp.API.Modules.Utils;
 using Microsoft.Extensions.Logging;
 using MySqlConnector;
 
@@ -45,47 +44,6 @@ namespace PLGPlugin
             return builder.ConnectionString;
         }
 
-        public async Task<List<TeamPLG>> GetTeamsByHostname(string hostname)
-        {
-            try
-            {
-                await using var connection = new MySqlConnection(_connectionString);
-                string query = @"
-                    SELECT 
-                        t.team_id as Id,
-                        t.name AS Name,
-                        t.side AS Side,
-                        m.id AS Players
-                    FROM 
-                        team t
-                    JOIN 
-                        team_members tm ON t.id = tm.team_id
-                    JOIN 
-                        members m ON tm.member_id = m.id
-                    WHERE 
-                        t.hostname = @hostname;
-                ";
-                var parameters = new { hostname };
-                var rows = await connection.QueryAsync<(int Id, string Name, CsTeam Side, string Players)>(query, parameters);
-                var groupedTeams = rows
-                    .GroupBy(row => new { row.Name, row.Side, row.Id })
-                    .Select(group => new TeamPLG
-                    {
-                        Name = group.Key.Name,
-                        Id = group.Key.Id,
-                        Side = group.Key.Side,
-                        Players = group.Select(x => x.Players).ToList()
-                    }).ToList();
-                return groupedTeams;
-            }
-            catch (System.Exception ex)
-            {
-                _logger.LogError(ex, "Error while getting teams by Hostname");
-                throw;
-            }
-
-        }
-
         public async Task<string> NewMatch(string map)
         {
             try
@@ -103,13 +61,11 @@ namespace PLGPlugin
                     MapName = map
                 };
                 var matchId = await connection.ExecuteScalarAsync(query, parameters);
-                _logger.LogInformation("Match id: " + matchId);
-                var matchIdString = matchId?.ToString();
-                if (string.IsNullOrWhiteSpace(matchIdString))
+                if (matchId == null)
                 {
                     throw new Exception("Insertion of match failed");
                 }
-                return matchIdString;
+                return matchId.ToString();
             }
             catch (System.Exception ex)
             {
