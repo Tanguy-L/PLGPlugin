@@ -43,7 +43,7 @@ namespace PLGPlugin
         private static readonly string AdminChatPrefix =
             $"[{ChatColors.Red}ADMIN{ChatColors.Default}]";
 
-        public static void BroadcastMessage(string message)
+        public void BroadcastMessage(string message)
         {
             Server.PrintToChatAll($"{ChatPrefix} {message}");
         }

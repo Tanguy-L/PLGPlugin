@@ -4,7 +4,7 @@ namespace PLGPlugin
 {
     public class TeamManager
     {
-        public TeamPLG _team;
+        private TeamPLG _team;
 
         public int Score { get; set; } = 0;
         public bool Ready { get; set; } = false;
@@ -28,6 +28,11 @@ namespace PLGPlugin
         public CsTeam GetSide()
         {
             return _team.Side;
+        }
+
+        public string GetName()
+        {
+            return _team.Name;
         }
 
         public int GetId()

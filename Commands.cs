@@ -26,7 +26,7 @@ public sealed partial class PLGPlugin
         }
     }
 
-    public async void OnReady(CCSPlayerController? player, CommandInfo? command)
+    public void OnUnready(CCSPlayerController? player, CommandInfo? command)
     {
         if (player == null)
         {
@@ -37,38 +37,44 @@ public sealed partial class PLGPlugin
             return;
         }
         var side = player.Team;
-        if (side == CsTeam.Terrorist)
+        _matchManager.SetTeamReady(side, false);
+
+        var team = _matchManager.TryGetTeamBySide(side);
+        var teamName = team != null ? team.GetName() : "Unknown";
+        BroadcastMessage($"Team {teamName} unready by {player.PlayerName}");
+    }
+
+    public void OnReady(CCSPlayerController? player, CommandInfo? command)
+    {
+        if (player == null)
         {
-            _matchManager.SetTeamReady(0, true);
+            return;
         }
-        if (side == CsTeam.CounterTerrorist)
+        if (_matchManager == null)
         {
-            _matchManager.SetTeamReady(1, true);
+            return;
         }
+        var side = player.Team;
+        _matchManager.SetTeamReady(side, true);
+
         if (_logger == null)
         {
             return;
         }
 
+        var team = _matchManager.TryGetTeamBySide(side);
+        var teamName = team != null ? team.GetName() : "Unknown";
+        BroadcastMessage($"Team {teamName} ready by {player.PlayerName}");
+
         if (_matchManager.IsAllTeamReady())
         {
-            var hostnameValue = ConVar.Find("hostname");
-            if (hostnameValue == null || hostnameValue.StringValue == null)
+            Server.NextFrame(async () =>
             {
-                _logger.LogError("hostname variable not found");
-                return;
-            }
-            var hostname = hostnameValue.StringValue;
-            var mapName = Server.MapName;
-            await Task.Run(async () =>
-            {
-                await _matchManager.NewMatch(hostname, mapName);
-                await Server.NextFrameAsync(() =>
-                {
-                    _matchManager.StartTheMatch();
-                });
+                await _matchManager.RunMatch();
+                BroadcastMessage($"Everyone is ready, let's start the match !!");
             });
         }
+
     }
 
     [ConsoleCommand("css_dgroup", "Regroup on the discord")]
@@ -216,14 +222,20 @@ public sealed partial class PLGPlugin
     [ConsoleCommand("css_match", "start a PLG match")]
     public void OnStartPLGMatch(CCSPlayerController? player, CommandInfo? command)
     {
-        Server.ExecuteCommand("css_set_teams");
 
-        // StartKnife();
+        if (_matchManager == null)
+        {
+            return;
+        }
+        _matchManager.SetTeamReady(CsTeam.Terrorist, true);
+        _matchManager.SetTeamReady(CsTeam.CounterTerrorist, true);
 
+        BroadcastMessage("Match started by admin");
 
-
-
-
+        Server.NextFrame(async () =>
+        {
+            await _matchManager.RunMatch();
+        });
     }
 
     [ConsoleCommand("css_set_teams", "Make every player in their teams based on DB")]

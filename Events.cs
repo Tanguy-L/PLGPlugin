@@ -21,7 +21,7 @@ namespace PLGPlugin
             var winnerSide = (CsTeam)@event.Winner;
             if (_matchManager == null)
             {
-                _logger.LogError("MatchManager is null");
+                Console.WriteLine("EROR: MatchManager is null");
                 return HookResult.Continue;
             }
             if (_matchManager.state == MatchManager.MatchState.Knife)

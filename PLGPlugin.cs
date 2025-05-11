@@ -92,6 +92,7 @@ public sealed partial class PLGPlugin : BasePlugin, IPluginConfig<PlgConfig>
         {
             { ".load", LoadPlayerCache },
             { ".ready", OnReady },
+            { ".unready", OnUnready },
             { ".list", ListPlayers },
             { ".colors", PrintColors },
             { ".match", OnStartPLGMatch},

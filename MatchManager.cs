@@ -1,4 +1,5 @@
 using CounterStrikeSharp.API;
+using CounterStrikeSharp.API.Modules.Cvars;
 using CounterStrikeSharp.API.Modules.Utils;
 using Microsoft.Extensions.Logging;
 
@@ -33,8 +34,8 @@ namespace PLGPlugin
         public MatchManager(Database database, PlayerManager playerManager, PlgConfig config, BackupManager backup)
         {
             var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
-            _pathConfig = config.CfgFolder;
             _logger = loggerFactory.CreateLogger<MatchManager>();
+            _pathConfig = config.CfgFolder;
             _playerManager = playerManager;
             _database = database;
             _webhook = config.DiscordWebhook;
@@ -48,8 +49,25 @@ namespace PLGPlugin
             _teamsReady = [false, false];
         }
 
-        public void SetTeamReady(int index, bool value)
+        public void SetTeamReady(CsTeam side, bool value)
         {
+            int index = -1;
+
+            if (side == CsTeam.CounterTerrorist)
+            {
+                index = 1;
+            }
+            if (side == CsTeam.Terrorist)
+            {
+                index = 0;
+            }
+            if (index == -1)
+            {
+
+            }
+
+            // _teamsReady is an [false, false]
+            // But it can be null
             if (_teamsReady == null)
             {
                 return;
@@ -57,15 +75,101 @@ namespace PLGPlugin
             _teamsReady[index] = value;
         }
 
-        public void DetermineTheKnifeWinner(CsTeam sideOfTeam)
+        public TeamManager? TryGetTeamBySide(CsTeam side)
         {
-            var winner = _teams?.FirstOrDefault(t => t.GetSide() == sideOfTeam);
-            var id = winner?.GetId();
-            if (id == null)
+            var teamFound = _teams?.FirstOrDefault(t => t.GetSide() == side);
+            return teamFound;
+        }
+
+        private (int alivePlayers, int totalHealth) GetAlivePlayers(int team)
+        {
+            int count = 0;
+            int totalHealth = 0;
+            var allPlayers = Utilities.GetPlayers();
+            foreach (var player in allPlayers)
             {
-                _logger.LogError("Winner is null");
+                if (player.IsValid)
+                {
+                    if (player.TeamNum == team)
+                    {
+                        if (player.PlayerPawn.Value!.Health > 0) count++;
+                        totalHealth += player.PlayerPawn.Value!.Health;
+                    }
+
+                }
+            }
+            return (count, totalHealth);
+        }
+
+        private void SetPlayersInTeams()
+        {
+            Console.WriteLine("INFO Set teams !");
+
+            if (_playerManager == null)
+            {
                 return;
             }
+
+            var players = Utilities.GetPlayers();
+
+            foreach (var playerController in players)
+            {
+                var plgPlayer = _playerManager.GetPlayer(playerController.SteamID);
+                if (plgPlayer == null)
+                {
+                    return;
+                }
+                var sideInDb = plgPlayer.Side;
+                var sideInGame = playerController.Team;
+
+                if (sideInDb == null)
+                {
+                    return;
+                }
+
+                if (!Enum.TryParse<CsTeam>(sideInDb, out CsTeam sideInDbParsed))
+                {
+                    Console.WriteLine($"Could not parse team value: {sideInDb}");
+                    return;
+                }
+
+                if (sideInGame != sideInDbParsed)
+                {
+                    playerController.SwitchTeam(sideInDbParsed);
+                    playerController.CommitSuicide(false, true);
+                }
+            }
+        }
+
+        public void DetermineTheKnifeWinner(CsTeam sideOfTeam)
+        {
+            CsTeam sideWinner = 0;
+
+            (int tAlive, int tHealth) = GetAlivePlayers(2);
+            (int ctAlive, int ctHealth) = GetAlivePlayers(3);
+            if (ctAlive > tAlive)
+            {
+                sideWinner = CsTeam.CounterTerrorist;
+            }
+            else if (tAlive > ctAlive)
+            {
+                sideWinner = CsTeam.Terrorist;
+            }
+            else if (ctHealth > tHealth)
+            {
+                sideWinner = CsTeam.CounterTerrorist;
+            }
+            else if (tHealth > ctHealth)
+            {
+                sideWinner = CsTeam.Terrorist;
+            }
+            else
+            {
+                sideWinner = CsTeam.CounterTerrorist;
+            }
+
+            var winner = _teams?.FirstOrDefault(t => t.GetSide() == sideWinner);
+            var id = winner?.GetId();
             _knifeWinner = id;
         }
 
@@ -74,15 +178,50 @@ namespace PLGPlugin
             return _teamsReady != null && _teamsReady[0] && _teamsReady[1];
         }
 
-        public async Task NewMatch(string hostname, string mapName)
+        private async Task<string> CreateTheMatchInDB(string mapName)
         {
             var matchId = await _database.NewMatch(mapName);
-            var allTeamPLG = await _database.GetTeamsByHostname(hostname);
-            _matchId = matchId;
-            _mapName = mapName;
-            _teams = allTeamPLG.Select(t => new TeamManager(t)).ToList();
+            return matchId;
         }
 
+        // get teams with corresponding hostname
+        // PLG default, bleu or rouge for LAN
+        // Parse Team into TeamManager
+        private async Task<List<TeamManager>> GetDBTeamsOfMatch(string hostname)
+        {
+            var allTeamPLG = await _database.GetTeamsByHostname(hostname);
+            return allTeamPLG.Select(t => new TeamManager(t)).ToList();
+        }
+
+        public async Task SetTheNewMatchConfig(string hostname, string mapName)
+        {
+            _mapName = mapName;
+            _matchId = await CreateTheMatchInDB(mapName);
+            _teams = await GetDBTeamsOfMatch(hostname);
+        }
+
+        public async Task RunMatch()
+        {
+            var hostnameValue = ConVar.Find("hostname");
+            if (hostnameValue == null || hostnameValue.StringValue == null)
+            {
+                _logger.LogError("EROR: hostname not found");
+                return;
+            }
+
+            var hostname = hostnameValue.StringValue;
+            var mapName = Server.MapName;
+
+            await Task.Run(async () =>
+            {
+                await SetTheNewMatchConfig(hostname, mapName);
+                await Server.NextFrameAsync(() =>
+                {
+                    SetPlayersInTeams();
+                    StartKnife();
+                });
+            });
+        }
 
         private void ExecCfg(string nameFile)
         {
@@ -107,9 +246,9 @@ namespace PLGPlugin
             ExecCfg("match.cfg");
         }
 
-
         public void StartTheMatch()
         {
+            SetPlayersInTeams();
             StartKnife();
         }
     }
