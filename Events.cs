@@ -14,6 +14,26 @@ namespace PLGPlugin
             RegisterEventHandler<EventRoundPoststart>(OnRoundPostStart);
             RegisterEventHandler<EventCsWinPanelMatch>(WinPanelEventHandler);
             RegisterEventHandler<EventRoundEnd>(OnRoundEnd);
+            RegisterEventHandler<EventCsWinPanelMatch>(OnMatchEnd);
+        }
+
+        public HookResult OnMatchEnd(EventCsWinPanelMatch @event, GameEventInfo info)
+        {
+            if (_matchManager != null)
+            {
+                var teams = Utilities.FindAllEntitiesByDesignerName<CCSTeam>("cs_team_manager");
+
+                foreach (var team in teams)
+                {
+                    var score = team.Score;
+                    var side = team.Teamname;
+                }
+
+                // TODO HANDLE THE MATCH END
+                // _matchManager.state = MatchManager.MatchState.End;
+                // var winnerTeam = (CsTeam)@event)
+            }
+            return HookResult.Continue;
         }
 
         public HookResult OnRoundEnd(EventRoundEnd @event, GameEventInfo info)

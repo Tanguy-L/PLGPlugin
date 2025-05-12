@@ -1,5 +1,4 @@
 using CounterStrikeSharp.API;
-using CounterStrikeSharp.API.Modules.Cvars;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
 using CounterStrikeSharp.API.Modules.Commands;
@@ -142,6 +141,11 @@ public sealed partial class PLGPlugin
     public void OnUnpauseCommand(CCSPlayerController? player, CommandInfo? command)
     {
         UnPauseMatch(player, command);
+
+        if (_matchManager != null)
+        {
+            _matchManager.state = MatchManager.MatchState.Live;
+        }
     }
 
     [ConsoleCommand("css_warmup", "Warmup")]
@@ -207,16 +211,36 @@ public sealed partial class PLGPlugin
         StartKnife();
     }
 
+    [ConsoleCommand("css_stay", "team stay !")]
+    public void OnStay(CCSPlayerController? player, CommandInfo? command)
+    {
+        if (_matchManager != null)
+        {
+            _matchManager.GoGoGo();
+        }
+    }
+
     [ConsoleCommand("css_switch", "switch")]
     public void Switch(CCSPlayerController? player, CommandInfo? command)
     {
         Server.ExecuteCommand("mp_swapteams;");
+
+        if (_matchManager != null)
+        {
+            _matchManager.GoGoGo();
+            _matchManager.ReverseTeamSides();
+        }
     }
 
     [ConsoleCommand("css_pause", "pause the match")]
     public void OnPauseCommand(CCSPlayerController? player, CommandInfo? command)
     {
         PauseMatch(player, command);
+
+        if (_matchManager != null)
+        {
+            _matchManager.state = MatchManager.MatchState.Paused;
+        }
     }
 
     [ConsoleCommand("css_match", "start a PLG match")]

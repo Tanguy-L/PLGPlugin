@@ -25,6 +25,7 @@ namespace PLGPlugin
         private readonly string _pathConfig;
         private string? _mapName;
         private string? _matchId;
+        private int? _teamWinner;
         private int? _knifeWinner;
         private List<TeamManager>? _teams;
         // 0 = Terrorist and 1 = CT
@@ -47,6 +48,28 @@ namespace PLGPlugin
         {
             state = MatchState.Setup;
             _teamsReady = [false, false];
+        }
+
+        public void SetWinnerTeam(int id)
+        {
+            _teamWinner = id;
+        }
+
+        public TeamManager? GetWinnerTeam()
+        {
+            return _teams?.FirstOrDefault(t => t.GetId() == _teamWinner);
+        }
+
+        public void ReverseTeamSides()
+        {
+            if (_teams == null)
+            {
+                return;
+            }
+            foreach (var team in _teams)
+            {
+                team.ReverseSide();
+            }
         }
 
         public void SetTeamReady(CsTeam side, bool value)
@@ -171,6 +194,9 @@ namespace PLGPlugin
             var winner = _teams?.FirstOrDefault(t => t.GetSide() == sideWinner);
             var id = winner?.GetId();
             _knifeWinner = id;
+
+            state = MatchState.WaitingForSideChoice;
+            ExecWarmup();
         }
 
         public bool IsAllTeamReady()
@@ -219,8 +245,26 @@ namespace PLGPlugin
                 {
                     SetPlayersInTeams();
                     StartKnife();
+                    // TODO SET THE TEAM NAMES IN SERVER
+                    // foreach(team in _teams) {
+                    //
+                    // }
                 });
             });
+        }
+
+        public void GoGoGo()
+        {
+
+            if (state == MatchManager.MatchState.WaitingForSideChoice)
+            {
+                state = MatchManager.MatchState.Live;
+                StartLive();
+            }
+            else
+            {
+                _logger.LogError("EROR: state not waiting for side choice");
+            }
         }
 
         private void ExecCfg(string nameFile)
@@ -244,12 +288,6 @@ namespace PLGPlugin
         private void StartLive()
         {
             ExecCfg("match.cfg");
-        }
-
-        public void StartTheMatch()
-        {
-            SetPlayersInTeams();
-            StartKnife();
         }
     }
 

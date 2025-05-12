@@ -30,6 +30,11 @@ namespace PLGPlugin
             return _team.Side;
         }
 
+        public void ReverseSide()
+        {
+            _team.Side = _team.Side == CsTeam.CounterTerrorist ? CsTeam.Terrorist : CsTeam.CounterTerrorist;
+        }
+
         public string GetName()
         {
             return _team.Name;
