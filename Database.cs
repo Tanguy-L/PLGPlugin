@@ -57,9 +57,9 @@ namespace PLGPlugin
                         t.side AS Side,
                         m.id AS Players
                     FROM 
-                        team t
+                        teams t
                     JOIN 
-                        team_members tm ON t.id = tm.team_id
+                        team_members tm ON t.team_id = tm.team_id
                     JOIN 
                         members m ON tm.member_id = m.id
                     WHERE 
@@ -86,21 +86,24 @@ namespace PLGPlugin
 
         }
 
-        public async Task<string> NewMatch(string map)
+        public async Task<string> NewMatch(string map, int teamId1, int teamId2)
         {
             try
             {
                 await using var connection = new MySqlConnection(_connectionString);
+                //TODO remove ip_server from db
                 string query = @"INSERT INTO plg.match_stats_matches 
-                    (mapnumber, start_time, end_time, winner, mapname, team1_score, team2_score)
+                    (start_time, end_time, winner, team1_score, team2_score, series_type, server_ip, team1_id, team2_id)
                     VALUES 
-                    (1, @StarTime, NULL, NULL, @MapName, 0, 0);
-                    LAST_INSERT_ID();
+                    (@StarTime, NULL, NULL, 0, 0, 'BO1', '-', @team1, @team2);
+                    SELECT LAST_INSERT_ID();
                 ";
                 var parameters = new
                 {
-                    StarTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
-                    MapName = map
+                    StarTime = DateTime.Now,
+                    MapName = map,
+                    team1 = teamId1,
+                    team2 = teamId2
                 };
                 var matchId = await connection.ExecuteScalarAsync(query, parameters);
                 _logger.LogInformation("Match id: " + matchId);

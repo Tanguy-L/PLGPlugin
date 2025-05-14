@@ -251,7 +251,14 @@ namespace PLGPlugin
 
         private async Task<string> CreateTheMatchInDB(string mapName)
         {
-            var matchId = await _database.NewMatch(mapName);
+            var team1 = _teams?.FirstOrDefault(t => t.GetSide() == CsTeam.Terrorist);
+            var team2 = _teams?.FirstOrDefault(t => t.GetSide() == CsTeam.CounterTerrorist);
+            if (team1 == null || team2 == null)
+            {
+                return "Fail";
+            }
+
+            var matchId = await _database.NewMatch(mapName, team1.GetId(), team2.GetId());
             return matchId;
         }
 
@@ -267,8 +274,8 @@ namespace PLGPlugin
         public async Task SetTheNewMatchConfig(string hostname, string mapName)
         {
             _mapName = mapName;
-            _matchId = await CreateTheMatchInDB(mapName);
             _teams = await GetDBTeamsOfMatch(hostname);
+            _matchId = await CreateTheMatchInDB(mapName);
         }
 
         public async Task RunMatch()
@@ -296,11 +303,11 @@ namespace PLGPlugin
                             var side = team.GetSide();
                             if (side == CsTeam.CounterTerrorist)
                             {
-                                Server.ExecuteCommand($"cs_team_name 1 {team.GetName()}");
+                                Server.ExecuteCommand($"mp_teamname_1 {team.GetName()}");
                             }
                             if (side == CsTeam.Terrorist)
                             {
-                                Server.ExecuteCommand($"cs_team_name 2 {team.GetName()}");
+                                Server.ExecuteCommand($"mp_teamname_2 {team.GetName()}");
                             }
                         }
                     }
