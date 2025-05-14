@@ -60,6 +60,7 @@ namespace PLGPlugin
             return _teams?.FirstOrDefault(t => t.GetId() == _teamWinner);
         }
 
+
         public void ReverseTeamSides()
         {
             if (_teams == null)
@@ -70,6 +71,22 @@ namespace PLGPlugin
             {
                 team.ReverseSide();
             }
+        }
+
+        public List<string>? GetTeamNames()
+        {
+            if (_teams == null)
+            {
+                return null;
+
+            }
+
+            return _teams.Select(t => t.GetName()).ToList();
+        }
+
+        public void End()
+        {
+            Server.ExecuteCommand($"tv_stoprecord");
         }
 
         public void SetTeamReady(CsTeam side, bool value)
@@ -102,6 +119,34 @@ namespace PLGPlugin
         {
             var teamFound = _teams?.FirstOrDefault(t => t.GetSide() == side);
             return teamFound;
+        }
+
+        private void StartTvRecord()
+        {
+            DateTime date = DateTime.Now;
+            var map = Server.MapName;
+            string dateFormatted = date.ToString("dd/MM/yyyy");
+            var title = _matchId + "_" + date + "_" + map + ".dem";
+
+            try
+            {
+                string? directoryPath = Path.GetDirectoryName(Path.Join(Server.GameDirectory + "/csgo/", "/demos"));
+                if (directoryPath != null)
+                {
+                    if (!Directory.Exists(directoryPath))
+                    {
+                        Directory.CreateDirectory(directoryPath);
+                    }
+                }
+                string demoPath = "/demos/" + title;
+                _logger.LogInformation($"[StartDemoRecoding] Starting demo recording, path: {demoPath}");
+                Server.ExecuteCommand($"tv_record {demoPath}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"[StartDemoRecording - FATAL] Error: {ex.Message}.");
+            }
+
         }
 
         private (int alivePlayers, int totalHealth) GetAlivePlayers(int team)
@@ -244,11 +289,23 @@ namespace PLGPlugin
                 await Server.NextFrameAsync(() =>
                 {
                     SetPlayersInTeams();
+                    if (_teams != null)
+                    {
+                        foreach (var team in _teams)
+                        {
+                            var side = team.GetSide();
+                            if (side == CsTeam.CounterTerrorist)
+                            {
+                                Server.ExecuteCommand($"cs_team_name 1 {team.GetName()}");
+                            }
+                            if (side == CsTeam.Terrorist)
+                            {
+                                Server.ExecuteCommand($"cs_team_name 2 {team.GetName()}");
+                            }
+                        }
+                    }
+                    StartTvRecord();
                     StartKnife();
-                    // TODO SET THE TEAM NAMES IN SERVER
-                    // foreach(team in _teams) {
-                    //
-                    // }
                 });
             });
         }

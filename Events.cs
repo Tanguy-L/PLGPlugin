@@ -22,11 +22,23 @@ namespace PLGPlugin
             if (_matchManager != null)
             {
                 var teams = Utilities.FindAllEntitiesByDesignerName<CCSTeam>("cs_team_manager");
+                var teamNames = _matchManager.GetTeamNames();
+                if (teamNames == null)
+                {
+                    return HookResult.Continue;
+                }
 
                 foreach (var team in teams)
                 {
                     var score = team.Score;
-                    var side = team.Teamname;
+                    var teamName = team.Teamname;
+                    teamName = teamNames.FirstOrDefault(x => x == teamName);
+
+
+
+
+
+
                 }
 
                 // TODO HANDLE THE MATCH END
