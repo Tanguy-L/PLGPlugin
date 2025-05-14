@@ -17,6 +17,13 @@ namespace PLGPlugin
             Paused,
             Ended
         }
+
+        // duplicate keys from PLGPlugin instance
+        // Because BroadcastMessage was not accessible
+        private static readonly string ChatPrefix =
+            $"[{ChatColors.Blue}P{ChatColors.Yellow}L{ChatColors.Red}G{ChatColors.Default}]";
+        private static readonly string AdminChatPrefix =
+            $"[{ChatColors.Red}ADMIN{ChatColors.Default}]";
         private readonly PlayerManager _playerManager;
         private readonly Database _database;
         private readonly string _webhook;
@@ -310,11 +317,23 @@ namespace PLGPlugin
                                 Server.ExecuteCommand($"mp_teamname_2 {team.GetName()}");
                             }
                         }
+                        StartTvRecord();
+                        StartKnife();
+
+                        var teamName1 = _teams[0].GetName();
+                        var teamName2 = _teams[1].GetName();
+
+                        BroadcastMessage($"Le match démarre sur {mapName} et avec les équipes {teamName1} et {teamName2}");
+                        BroadcastMessage($"Tapez .switch ou .stay !");
                     }
-                    StartTvRecord();
-                    StartKnife();
                 });
             });
+        }
+
+
+        public void BroadcastMessage(string message)
+        {
+            Server.PrintToChatAll($"{ChatPrefix} {message}");
         }
 
         public void GoGoGo()

@@ -91,6 +91,7 @@ public sealed partial class PLGPlugin : BasePlugin, IPluginConfig<PlgConfig>
         Dictionary<string, Action<CCSPlayerController?, CommandInfo?>> commandActions = new()
         {
             { ".load", LoadPlayerCache },
+            { ".stop_tv", OnStopRecordTv },
             { ".ready", OnReady },
             { ".unready", OnUnready },
             { ".list", ListPlayers },
@@ -100,12 +101,14 @@ public sealed partial class PLGPlugin : BasePlugin, IPluginConfig<PlgConfig>
             { ".knife", StartKnife },
             { ".start", StartLive },
             { ".switch", Switch },
+            { ".stay", OnStay },
             { ".help", OnHelpCommand },
             { ".pause", OnPauseCommand },
             { ".unpause", OnUnpauseCommand },
             { ".set_teams", OnSetTeams },
             { ".dgroup", OnGroupPlayers },
             { ".dsplit", OnSplitPlayers },
+            { ".no_match", OnNoMatch },
             { ".lbackups", OnGetBackups },
             { ".test", OnTestCommand },
         };

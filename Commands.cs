@@ -220,6 +220,31 @@ public sealed partial class PLGPlugin
         }
     }
 
+    [ConsoleCommand("css_no_match", "Remove the match manager ! (set it to null)")]
+    public void OnNoMatch(CCSPlayerController? player, CommandInfo? command)
+    {
+        if (_matchManager != null)
+        {
+            _matchManager = null;
+
+        }
+    }
+
+    [ConsoleCommand("css_stop_tv", "Stop the current record tv")]
+    public void OnStopRecordTv(CCSPlayerController? player, CommandInfo? command)
+    {
+        if (player == null)
+        {
+            return;
+        }
+
+        if (player.IsValid)
+        {
+            Server.ExecuteCommand("tv_stoprecord");
+            player.PrintToChat($"{ChatPrefix} TV stopped");
+        }
+    }
+
     [ConsoleCommand("css_switch", "switch")]
     public void Switch(CCSPlayerController? player, CommandInfo? command)
     {
