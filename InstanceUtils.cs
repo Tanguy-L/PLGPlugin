@@ -147,9 +147,9 @@ namespace PLGPlugin
                     player,
                     $"{ChatColors.Red}----[INFOS ADMINS]----{ChatColors.Default}"
                 );
+                ReplyToUserCommand(player, "PLG Mode : .match");
                 ReplyToUserCommand(player, "Match : .start .warmup .knife .switch");
                 ReplyToUserCommand(player, "Backups : .lbackups, .restore <filename>");
-                ReplyToUserCommand(player, "Discord: .dgroup .dsplit");
                 ReplyToUserCommand(player, "Pause : .pause .unpause");
                 ReplyToUserCommand(player, "Players : .list");
                 ReplyToUserCommand(player, "DB : .set_teams");

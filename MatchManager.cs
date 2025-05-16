@@ -51,6 +51,37 @@ namespace PLGPlugin
             state = MatchState.None;
         }
 
+        public void logAll()
+        {
+
+            if (_teams != null)
+            {
+
+                BroadcastMessage("Teams:");
+
+                foreach (var team in _teams)
+                {
+                    var id = team.GetId();
+                    var name = team.GetName();
+                    BroadcastMessage($"id --- {id} name --- {name}");
+                }
+            }
+
+            BroadcastMessage($"State: {state}");
+            BroadcastMessage($"Knife winner: {_knifeWinner}");
+            BroadcastMessage($"Map: {_mapName}");
+            if (_teamsReady != null)
+            {
+                var ready = "";
+                foreach (var isReady in _teamsReady)
+                {
+                    ready += isReady + " ";
+                }
+                BroadcastMessage($"ready: {ready}");
+            }
+
+        }
+
         public void InitSetupMatch()
         {
             state = MatchState.Setup;
@@ -293,6 +324,7 @@ namespace PLGPlugin
                 _logger.LogError("EROR: hostname not found");
                 return;
             }
+            _logger.LogInformation($"Hostname: {hostnameValue.StringValue}");
 
             var hostname = hostnameValue.StringValue;
             var mapName = Server.MapName;
@@ -300,7 +332,7 @@ namespace PLGPlugin
             await Task.Run(async () =>
             {
                 await SetTheNewMatchConfig(hostname, mapName);
-                await Server.NextFrameAsync(() =>
+                Server.NextFrame(() =>
                 {
                     SetPlayersInTeams();
                     if (_teams != null)

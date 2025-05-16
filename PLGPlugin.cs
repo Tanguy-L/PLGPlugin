@@ -106,8 +106,6 @@ public sealed partial class PLGPlugin : BasePlugin, IPluginConfig<PlgConfig>
             { ".pause", OnPauseCommand },
             { ".unpause", OnUnpauseCommand },
             { ".set_teams", OnSetTeams },
-            { ".dgroup", OnGroupPlayers },
-            { ".dsplit", OnSplitPlayers },
             { ".no_match", OnNoMatch },
             { ".lbackups", OnGetBackups },
             { ".test", OnTestCommand },

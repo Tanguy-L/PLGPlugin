@@ -76,18 +76,6 @@ public sealed partial class PLGPlugin
 
     }
 
-    [ConsoleCommand("css_dgroup", "Regroup on the discord")]
-    public void OnGroupPlayers(CCSPlayerController? player, CommandInfo? command)
-    {
-        Console.WriteLine("test1");
-    }
-
-    [ConsoleCommand("css_dgroup", "Regroup on the discord")]
-    public void OnSplitPlayers(CCSPlayerController? player, CommandInfo? command)
-    {
-        Console.WriteLine("test2");
-    }
-
     [ConsoleCommand("css_colors", "Print to chat all colors for smokes")]
     public void PrintColors(CCSPlayerController? player, CommandInfo? command)
     {
@@ -134,7 +122,13 @@ public sealed partial class PLGPlugin
         {
             return;
         }
-        var canBan = CanYouDoThat(player, "@css/generic");
+
+        if (_matchManager != null)
+        {
+
+            _matchManager.logAll();
+        }
+
     }
 
     [ConsoleCommand("css_unpause", "Unpause the match !")]
@@ -290,8 +284,6 @@ public sealed partial class PLGPlugin
     [ConsoleCommand("css_set_teams", "Make every player in their teams based on DB")]
     public void OnSetTeams(CCSPlayerController? player, CommandInfo? command)
     {
-        Console.WriteLine("INFO Set teams !");
-
         if (_playerManager == null)
         {
             return;
