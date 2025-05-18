@@ -19,7 +19,7 @@ namespace PLGPlugin
 
         public HookResult OnMatchEnd(EventCsWinPanelMatch @event, GameEventInfo info)
         {
-            if (_matchManager != null)
+            if (_matchManager != null && _playerManager != null)
             {
                 var teams = Utilities.FindAllEntitiesByDesignerName<CCSTeam>("cs_team_manager");
                 var teamNames = _matchManager.GetTeamNames();
@@ -30,20 +30,78 @@ namespace PLGPlugin
 
                 foreach (var team in teams)
                 {
-                    var score = team.Score;
-                    var teamName = team.Teamname;
-                    teamName = teamNames.FirstOrDefault(x => x == teamName);
-
-
-
-
-
-
+                    var name = team.Teamname;
+                    var teamManager = _matchManager.GetTeamByName(name);
+                    teamManager.Score = team.Score;
                 }
 
-                // TODO HANDLE THE MATCH END
-                // _matchManager.state = MatchManager.MatchState.End;
-                // var winnerTeam = (CsTeam)@event)
+                _matchManager.SetWinnerTeam();
+
+                var allPlayers = Utilities.GetPlayers();
+                Dictionary<string, Dictionary<string, object>>? playersStatsOnly = new();
+
+                foreach (var _player in allPlayers)
+                {
+                    var id = _player.SteamID;
+                    var playerPlg = _playerManager.GetPlayer(id);
+                    if (playerPlg != null)
+                    {
+                        if (_player != null && _player.ActionTrackingServices != null)
+                        {
+                            var playerStats = _player.ActionTrackingServices.MatchStats;
+
+                            Dictionary<string, object> stats = new Dictionary<string, object>
+                            {
+                                { "PlayerName", _player.PlayerName },
+                                { "Kills", playerStats.Kills },
+                                { "Deaths", playerStats.Deaths },
+                                { "Assists", playerStats.Assists },
+                                { "Damage", playerStats.Damage },
+                                { "Enemy2Ks", playerStats.Enemy2Ks },
+                                { "Enemy3Ks", playerStats.Enemy3Ks },
+                                { "Enemy4Ks", playerStats.Enemy4Ks },
+                                { "Enemy5Ks", playerStats.Enemy5Ks },
+                                { "EntryCount", playerStats.EntryCount },
+                                { "EntryWins", playerStats.EntryWins },
+                                { "1v1Count", playerStats.I1v1Count },
+                                { "1v1Wins", playerStats.I1v1Wins },
+                                { "1v2Count", playerStats.I1v2Count },
+                                { "1v2Wins", playerStats.I1v2Wins },
+                                { "UtilityCount", playerStats.Utility_Count },
+                                { "UtilitySuccess", playerStats.Utility_Successes },
+                                { "UtilityDamage", playerStats.UtilityDamage },
+                                { "UtilityEnemies", playerStats.Utility_Enemies },
+                                { "FlashCount", playerStats.Flash_Count },
+                                { "FlashSuccess", playerStats.Flash_Successes },
+                                { "HealthPointsRemovedTotal", playerStats.HealthPointsRemovedTotal },
+                                { "HealthPointsDealtTotal", playerStats.HealthPointsDealtTotal },
+                                { "ShotsFiredTotal", playerStats.ShotsFiredTotal },
+                                { "ShotsOnTargetTotal", playerStats.ShotsOnTargetTotal },
+                                { "EquipmentValue", playerStats.EquipmentValue },
+                                { "MoneySaved", playerStats.MoneySaved },
+                                { "KillReward", playerStats.KillReward },
+                                { "LiveTime", playerStats.LiveTime },
+                                { "HeadShotKills", playerStats.HeadShotKills },
+                                { "CashEarned", playerStats.CashEarned },
+                                { "EnemiesFlashed", playerStats.EnemiesFlashed }
+                            };
+
+                            if (playerPlg.MemberId != null)
+                            {
+                                playerPlg.Stats = stats;
+                                _playerManager.AddOrUpdatePlayer(playerPlg);
+                            }
+                        }
+                    }
+                }
+
+                Task.Run(async () =>
+                {
+                    await _matchManager.UpdateStatsMatch();
+                });
+
+                _matchManager.End();
+
             }
             return HookResult.Continue;
         }
@@ -69,7 +127,10 @@ namespace PLGPlugin
             var map = Server.MapName;
             var date = DateTime.Now;
 
-            // TODO Restore the backup with match id !
+            if (_matchManager != null && _playerManager != null && _matchManager.state == MatchManager.MatchState.Ended)
+            {
+                _matchManager = null;
+            }
 
             return HookResult.Continue;
         }

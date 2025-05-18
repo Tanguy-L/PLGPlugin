@@ -17,6 +17,7 @@ public class TeamPLG
 public class PlgPlayer
 {
     public ulong SteamID { get; }
+    public string? MemberId { get; set; }
     public string? Side { get; set; }
     public string PlayerName { get; }
     public string? DiscordId { get; set; }
@@ -25,6 +26,7 @@ public class PlgPlayer
     public string? SmokeColor { get; set; }
     public string? TeamName { get; set; }
     public string? TeamChannelId { get; set; }
+    public Dictionary<string, object>? Stats { get; set; }
     public bool IsReady { get; set; }
     public bool IsValid { get; set; }
     public bool IsPlayer { get; set; }
@@ -49,6 +51,10 @@ public class PlayerFromDB
     [Key]
     [Column("discord_id")]
     public string? DiscordId { get; set; }
+
+    [Key]
+    [Column("id")]
+    public string? MemberId { get; set; }
 
     [Column("discord_name")]
     public string? DiscordName { get; set; }

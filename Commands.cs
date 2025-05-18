@@ -118,17 +118,64 @@ public sealed partial class PLGPlugin
     [ConsoleCommand("css_test", "Dont test that command !")]
     public void OnTestCommand(CCSPlayerController? player, CommandInfo? command)
     {
-        if (player == null)
+        if (player == null || _playerManager == null)
         {
             return;
         }
 
-        if (_matchManager != null)
+        var allPlayers = Utilities.GetPlayers();
+
+        foreach (var _player in allPlayers)
         {
+            var id = _player.SteamID;
+            var playerPlg = _playerManager.GetPlayer(id);
+            Console.WriteLine("PlayerId: " + id);
+            if (playerPlg != null)
+            {
+                if (_player != null && _player.ActionTrackingServices != null)
+                {
+                    var playerStats = _player.ActionTrackingServices.MatchStats;
 
-            _matchManager.logAll();
+                    Dictionary<string, object> stats = new Dictionary<string, object>
+                    {
+                        { "PlayerName", player.PlayerName },
+                        { "Kills", playerStats.Kills },
+                        { "Deaths", playerStats.Deaths },
+                        { "Assists", playerStats.Assists },
+                        { "Damage", playerStats.Damage },
+                        { "Enemy2Ks", playerStats.Enemy2Ks },
+                        { "Enemy3Ks", playerStats.Enemy3Ks },
+                        { "Enemy4Ks", playerStats.Enemy4Ks },
+                        { "Enemy5Ks", playerStats.Enemy5Ks },
+                        { "EntryCount", playerStats.EntryCount },
+                        { "EntryWins", playerStats.EntryWins },
+                        { "1v1Count", playerStats.I1v1Count },
+                        { "1v1Wins", playerStats.I1v1Wins },
+                        { "1v2Count", playerStats.I1v2Count },
+                        { "1v2Wins", playerStats.I1v2Wins },
+                        { "UtilityCount", playerStats.Utility_Count },
+                        { "UtilitySuccess", playerStats.Utility_Successes },
+                        { "UtilityDamage", playerStats.UtilityDamage },
+                        { "UtilityEnemies", playerStats.Utility_Enemies },
+                        { "FlashCount", playerStats.Flash_Count },
+                        { "FlashSuccess", playerStats.Flash_Successes },
+                        { "HealthPointsRemovedTotal", playerStats.HealthPointsRemovedTotal },
+                        { "HealthPointsDealtTotal", playerStats.HealthPointsDealtTotal },
+                        { "ShotsFiredTotal", playerStats.ShotsFiredTotal },
+                        { "ShotsOnTargetTotal", playerStats.ShotsOnTargetTotal },
+                        { "EquipmentValue", playerStats.EquipmentValue },
+                        { "MoneySaved", playerStats.MoneySaved },
+                        { "KillReward", playerStats.KillReward },
+                        { "LiveTime", playerStats.LiveTime },
+                        { "HeadShotKills", playerStats.HeadShotKills },
+                        { "CashEarned", playerStats.CashEarned },
+                        { "EnemiesFlashed", playerStats.EnemiesFlashed }
+                    };
+                    playerPlg.Stats = stats;
+                }
+            }
+
         }
-
     }
 
     [ConsoleCommand("css_unpause", "Unpause the match !")]

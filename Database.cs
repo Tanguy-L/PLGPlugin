@@ -45,6 +45,101 @@ namespace PLGPlugin
             return builder.ConnectionString;
         }
 
+        public async Task UpdatePlayersStats(PlayerManager playerManager, string matchId)
+        {
+            await using var connection = new MySqlConnection(_connectionString);
+
+            if (playerManager == null)
+            {
+                _logger.LogWarning("No players stats found");
+                return;
+            }
+
+            foreach (var plgPlayer in playerManager.getAllPlayers())
+            {
+                string sqlQuery = $@"
+                    INSERT INTO match_stats_players (
+                        matchid, mapnumber, member_id, team_id, kills, deaths, damage, assists,
+                        enemy5ks, enemy4ks, enemy3ks, enemy2ks, utility_count, utility_damage,
+                        utility_successes, utility_enemies, flash_count, flash_successes,
+                        health_points_removed_total, health_points_dealt_total, shots_fired_total,
+                        shots_on_target_total, v1_count, v1_wins, v2_count, v2_wins, entry_count, entry_wins,
+                        equipment_value, money_saved, kill_reward, live_time, head_shot_kills,
+                        cash_earned, enemies_flashed)
+                    VALUES (
+                        @matchId, @mapNumber, @memberId, @teamId, @kills, @deaths, @damage, @assists,
+                        @enemy5ks, @enemy4ks, @enemy3ks, @enemy2ks, @utility_count, @utility_damage,
+                        @utility_successes, @utility_enemies, @flash_count, @flash_successes,
+                        @health_points_removed_total, @health_points_dealt_total, @shots_fired_total,
+                        @shots_on_target_total, @v1_count, @v1_wins, @v2_count, @v2_wins, @entry_count,
+                        @entry_wins, @equipment_value, @money_saved, @kill_reward, @live_time,
+                        @head_shot_kills, @cash_earned, @enemies_flashed)
+                    ON DUPLICATE KEY UPDATE
+                        team_id = @team_id, kills = @kills, deaths = @deaths, damage = @damage,
+                        assists = @assists, enemy5ks = @enemy5ks, enemy4ks = @enemy4ks, enemy3ks = @enemy3ks,
+                        enemy2ks = @enemy2ks, utility_count = @utility_count, utility_damage = @utility_damage,
+                        utility_successes = @utility_successes, utility_enemies = @utility_enemies,
+                        flash_count = @flash_count, flash_successes = @flash_successes,
+                        health_points_removed_total = @health_points_removed_total,
+                        health_points_dealt_total = @health_points_dealt_total,
+                        shots_fired_total = @shots_fired_total, shots_on_target_total = @shots_on_target_total,
+                        v1_count = @v1_count, v1_wins = @v1_wins, v2_count = @v2_count, v2_wins = @v2_wins,
+                        entry_count = @entry_count, entry_wins = @entry_wins,
+                        equipment_value = @equipment_value, money_saved = @money_saved,
+                        kill_reward = @kill_reward, live_time = @live_time, head_shot_kills = @head_shot_kills,
+                        cash_earned = @cash_earned, enemies_flashed = @enemies_flashed";
+
+                Dictionary<string, object>? playerStats = plgPlayer.Stats;
+                if (playerStats == null)
+                {
+                    _logger.LogWarning("No stats found for player", plgPlayer.MemberId);
+                    return;
+                }
+                var memberId = plgPlayer.MemberId;
+
+                await connection.ExecuteAsync(sqlQuery,
+                new
+                {
+                    matchId,
+                    mapNumber = 1,
+                    memberId,
+                    team = playerStats["TeamName"],
+                    name = playerStats["PlayerName"],
+                    kills = playerStats["Kills"],
+                    deaths = playerStats["Deaths"],
+                    damage = playerStats["Damage"],
+                    assists = playerStats["Assists"],
+                    enemy5ks = playerStats["Enemy5Ks"],
+                    enemy4ks = playerStats["Enemy4Ks"],
+                    enemy3ks = playerStats["Enemy3Ks"],
+                    enemy2ks = playerStats["Enemy2Ks"],
+                    utility_count = playerStats["UtilityCount"],
+                    utility_damage = playerStats["UtilityDamage"],
+                    utility_successes = playerStats["UtilitySuccess"],
+                    utility_enemies = playerStats["UtilityEnemies"],
+                    flash_count = playerStats["FlashCount"],
+                    flash_successes = playerStats["FlashSuccess"],
+                    health_points_removed_total = playerStats["HealthPointsRemovedTotal"],
+                    health_points_dealt_total = playerStats["HealthPointsDealtTotal"],
+                    shots_fired_total = playerStats["ShotsFiredTotal"],
+                    shots_on_target_total = playerStats["ShotsOnTargetTotal"],
+                    v1_count = playerStats["1v1Count"],
+                    v1_wins = playerStats["1v1Wins"],
+                    v2_count = playerStats["1v2Count"],
+                    v2_wins = playerStats["1v2Wins"],
+                    entry_count = playerStats["EntryCount"],
+                    entry_wins = playerStats["EntryWins"],
+                    equipment_value = playerStats["EquipmentValue"],
+                    money_saved = playerStats["MoneySaved"],
+                    kill_reward = playerStats["KillReward"],
+                    live_time = playerStats["LiveTime"],
+                    head_shot_kills = playerStats["HeadShotKills"],
+                    cash_earned = playerStats["CashEarned"],
+                    enemies_flashed = playerStats["EnemiesFlashed"]
+                });
+            }
+        }
+
         public async Task<List<TeamPLG>> GetTeamsByHostname(string hostname)
         {
             try
@@ -83,7 +178,46 @@ namespace PLGPlugin
                 _logger.LogError(ex, "Error while getting teams by Hostname");
                 throw;
             }
+        }
 
+        public async Task UpdateMatchStats(string id, TeamManager team1, TeamManager team2)
+        {
+            try
+            {
+                var scoreTeam1 = team1.Score;
+                var scoreTeam2 = team2.Score;
+                var winner = scoreTeam1 > scoreTeam2 ? team1.GetId() : team2.GetId();
+                await using var connection = new MySqlConnection(_connectionString);
+
+                string query = @"UPDATE plg.match_stats_matches 
+                SET end_time = @EndTime, 
+                    winner = @Winner, 
+                    team1_score = @Team1Score, 
+                    team2_score = @Team2Score
+                WHERE id = @Id";
+
+                var parameters = new
+                {
+                    Id = id,
+                    EndTime = DateTime.Now,
+                    Winner = winner,
+                    Team1Score = scoreTeam1,
+                    Team2Score = scoreTeam2,
+                };
+                var rowsAffected = await connection.ExecuteAsync(query, parameters);
+
+                if (rowsAffected == 0)
+                {
+                    throw new Exception($"Update failed: No match found with ID {id}");
+                }
+
+                _logger.LogInformation($"Match {id} updated successfully");
+            }
+            catch (System.Exception ex)
+            {
+                _logger.LogError(ex, "Error while openning the database connection");
+                throw;
+            }
         }
 
         public async Task<string> NewMatch(string map, int teamId1, int teamId2)
@@ -187,6 +321,7 @@ namespace PLGPlugin
                      m.discord_id DiscordId,
                      m.discord_name DiscordName,
                      m.steam_id SteamId,
+                     m.id MemberId,
                      m.weight,
                      m.is_logged_in IsLoggedIn,
                      m.smoke_color SmokeColor,

@@ -14,6 +14,11 @@ namespace PLGPlugin
             _database = database;
         }
 
+        public List<PlgPlayer> getAllPlayers()
+        {
+            return _players.Values.ToList();
+        }
+
         public PlgPlayer? GetPlayer(ulong steamId) =>
             _players.TryGetValue(steamId, out var player) ? player : null;
 
@@ -40,6 +45,7 @@ namespace PLGPlugin
                 playerPLG.SmokeColor = playerDB.SmokeColor;
                 playerPLG.DiscordId = playerDB.DiscordId;
                 playerPLG.TeamChannelId = playerDB.TeamChannelId;
+                playerPLG.MemberId = playerDB.MemberId;
                 if (playerDB.Weight != null)
                 {
                     playerPLG.Weight = playerDB.Weight.ToString();
@@ -63,6 +69,7 @@ namespace PLGPlugin
                     playerPLG.SmokeColor = playerInfosDB.SmokeColor;
                     playerPLG.DiscordId = playerInfosDB.DiscordId;
                     playerPLG.TeamChannelId = playerInfosDB.TeamChannelId;
+                    playerPLG.MemberId = playerInfosDB.MemberId;
                     if (playerInfosDB.Weight != null)
                     {
                         playerPLG.Weight = playerInfosDB.Weight.ToString();

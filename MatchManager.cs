@@ -82,15 +82,34 @@ namespace PLGPlugin
 
         }
 
+        public TeamManager GetTeamByName(string name)
+        {
+            return _teams?.FirstOrDefault(t => t.GetName() == name) ?? throw new Exception($"Team {name} not found");
+        }
+
         public void InitSetupMatch()
         {
             state = MatchState.Setup;
             _teamsReady = [false, false];
         }
 
-        public void SetWinnerTeam(int id)
+        public void SetWinnerTeam()
         {
-            _teamWinner = id;
+            if (_teams == null)
+            {
+                return;
+            }
+            var score1 = _teams[0].Score;
+            var score2 = _teams[1].Score;
+
+            if (score1 > score2)
+            {
+                _teamWinner = 0;
+            }
+            else if (score2 > score1)
+            {
+                _teamWinner = 1;
+            }
         }
 
         public TeamManager? GetWinnerTeam()
@@ -125,6 +144,11 @@ namespace PLGPlugin
         public void End()
         {
             Server.ExecuteCommand($"tv_stoprecord");
+            state = MatchManager.MatchState.Ended;
+
+            BroadcastMessage("Match terminé");
+
+            // ExecWarmup();
         }
 
         public void SetTeamReady(CsTeam side, bool value)
@@ -379,6 +403,15 @@ namespace PLGPlugin
             else
             {
                 _logger.LogError("EROR: state not waiting for side choice");
+            }
+        }
+
+        public async Task UpdateStatsMatch()
+        {
+            if (_teams != null && _matchId != null)
+            {
+                await _database.UpdateMatchStats(_matchId, _teams[0], _teams[1]);
+                await _database.UpdatePlayersStats(_playerManager, _matchId);
             }
         }
 
