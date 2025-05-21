@@ -92,7 +92,7 @@ namespace PLGPlugin
                 Dictionary<string, object>? playerStats = plgPlayer.Stats;
                 if (playerStats == null)
                 {
-                    _logger.LogWarning("No stats found for player", plgPlayer.MemberId);
+                    _logger.LogWarning($"No stats found for player {plgPlayer.MemberId}");
                     return;
                 }
                 var memberId = plgPlayer.MemberId;
@@ -169,7 +169,10 @@ namespace PLGPlugin
                         Name = group.Key.Name,
                         Id = group.Key.Id,
                         Side = group.Key.Side,
-                        Players = group.Select(x => x.Players).ToList()
+                        Players = group.Select(x => x.Players).ToList(),
+                        Score = 0,
+                        Ready = false,
+                        HasPaused = false
                     }).ToList();
                 return groupedTeams;
             }
@@ -180,13 +183,19 @@ namespace PLGPlugin
             }
         }
 
-        public async Task UpdateMatchStats(string id, TeamManager team1, TeamManager team2)
+        public async Task UpdateMatchStats(string id, TeamPLG team1, TeamPLG team2)
         {
             try
             {
+                if (team1 == null || team2 == null)
+                {
+                    throw new Exception("Teams not found");
+                }
+
                 var scoreTeam1 = team1.Score;
                 var scoreTeam2 = team2.Score;
-                var winner = scoreTeam1 > scoreTeam2 ? team1.GetId() : team2.GetId();
+                var winner = scoreTeam1 > scoreTeam2 ? team1.Id : team2.Id;
+
                 await using var connection = new MySqlConnection(_connectionString);
 
                 string query = @"UPDATE plg.match_stats_matches 
@@ -283,6 +292,22 @@ namespace PLGPlugin
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Database connection error on SetSmoke");
+            }
+        }
+
+        public async Task JoinTeam(string memberId, int? idTeam)
+        {
+            try
+            {
+                await using var connection = await GetOpenConnectionAsync();
+
+                string query =
+                    $@"UPDATE team_members SET team_id = '{idTeam}' WHERE member_id = {memberId}";
+                await connection.ExecuteAsync(query);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Database connection error on JoinTeam");
             }
         }
 

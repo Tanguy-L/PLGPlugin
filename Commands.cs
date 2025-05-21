@@ -31,15 +31,16 @@ public sealed partial class PLGPlugin
         {
             return;
         }
-        if (_matchManager == null)
+        if (_matchManager == null || _teams == null)
         {
+            Logger?.Error("MatchManager or Teams is null");
             return;
         }
         var side = player.Team;
-        _matchManager.SetTeamReady(side, false);
+        _matchManager.SetTeamReadyBySide(side, false);
 
-        var team = _matchManager.TryGetTeamBySide(side);
-        var teamName = team != null ? team.GetName() : "Unknown";
+        var team = _teams.GetTeamBySide(side);
+        var teamName = team != null ? team.Name : "Unknown";
         BroadcastMessage($"Team {teamName} unready by {player.PlayerName}");
     }
 
@@ -49,20 +50,21 @@ public sealed partial class PLGPlugin
         {
             return;
         }
-        if (_matchManager == null)
+        if (_matchManager == null || _teams == null)
         {
+            Logger?.Error("MatchManager or Teams is null");
             return;
         }
         var side = player.Team;
-        _matchManager.SetTeamReady(side, true);
+        _matchManager.SetTeamReadyBySide(side, true);
 
-        if (_logger == null)
+        if (Logger == null)
         {
             return;
         }
 
-        var team = _matchManager.TryGetTeamBySide(side);
-        var teamName = team != null ? team.GetName() : "Unknown";
+        var team = _teams.GetTeamBySide(side);
+        var teamName = team != null ? team.Name : "Unknown";
         BroadcastMessage($"Team {teamName} ready by {player.PlayerName}");
 
         if (_matchManager.IsAllTeamReady())
@@ -125,57 +127,69 @@ public sealed partial class PLGPlugin
 
         var allPlayers = Utilities.GetPlayers();
 
-        foreach (var _player in allPlayers)
-        {
-            var id = _player.SteamID;
-            var playerPlg = _playerManager.GetPlayer(id);
-            Console.WriteLine("PlayerId: " + id);
-            if (playerPlg != null)
-            {
-                if (_player != null && _player.ActionTrackingServices != null)
-                {
-                    var playerStats = _player.ActionTrackingServices.MatchStats;
 
-                    Dictionary<string, object> stats = new Dictionary<string, object>
-                    {
-                        { "PlayerName", player.PlayerName },
-                        { "Kills", playerStats.Kills },
-                        { "Deaths", playerStats.Deaths },
-                        { "Assists", playerStats.Assists },
-                        { "Damage", playerStats.Damage },
-                        { "Enemy2Ks", playerStats.Enemy2Ks },
-                        { "Enemy3Ks", playerStats.Enemy3Ks },
-                        { "Enemy4Ks", playerStats.Enemy4Ks },
-                        { "Enemy5Ks", playerStats.Enemy5Ks },
-                        { "EntryCount", playerStats.EntryCount },
-                        { "EntryWins", playerStats.EntryWins },
-                        { "1v1Count", playerStats.I1v1Count },
-                        { "1v1Wins", playerStats.I1v1Wins },
-                        { "1v2Count", playerStats.I1v2Count },
-                        { "1v2Wins", playerStats.I1v2Wins },
-                        { "UtilityCount", playerStats.Utility_Count },
-                        { "UtilitySuccess", playerStats.Utility_Successes },
-                        { "UtilityDamage", playerStats.UtilityDamage },
-                        { "UtilityEnemies", playerStats.Utility_Enemies },
-                        { "FlashCount", playerStats.Flash_Count },
-                        { "FlashSuccess", playerStats.Flash_Successes },
-                        { "HealthPointsRemovedTotal", playerStats.HealthPointsRemovedTotal },
-                        { "HealthPointsDealtTotal", playerStats.HealthPointsDealtTotal },
-                        { "ShotsFiredTotal", playerStats.ShotsFiredTotal },
-                        { "ShotsOnTargetTotal", playerStats.ShotsOnTargetTotal },
-                        { "EquipmentValue", playerStats.EquipmentValue },
-                        { "MoneySaved", playerStats.MoneySaved },
-                        { "KillReward", playerStats.KillReward },
-                        { "LiveTime", playerStats.LiveTime },
-                        { "HeadShotKills", playerStats.HeadShotKills },
-                        { "CashEarned", playerStats.CashEarned },
-                        { "EnemiesFlashed", playerStats.EnemiesFlashed }
-                    };
-                    playerPlg.Stats = stats;
-                }
-            }
+        var teams = Utilities.FindAllEntitiesByDesignerName<CCSTeam>("cs_team_manager");
+
+        foreach (var team in teams)
+        {
+            BroadcastMessage($"{team.Index}");
+            BroadcastMessage($"{team.TeamNum}");
+            BroadcastMessage($"{team.TeamMatchStat}");
+            BroadcastMessage($"{team.Score}");
 
         }
+
+        // foreach (var _player in allPlayers)
+        // {
+        //     var id = _player.SteamID;
+        //     var playerPlg = _playerManager.GetPlayer(id);
+        //     Console.WriteLine("PlayerId: " + id);
+        //     if (playerPlg != null)
+        //     {
+        //         if (_player != null && _player.ActionTrackingServices != null)
+        //         {
+        //             var playerStats = _player.ActionTrackingServices.MatchStats;
+        //
+        //             Dictionary<string, object> stats = new Dictionary<string, object>
+        //             {
+        //                 { "PlayerName", player.PlayerName },
+        //                 { "Kills", playerStats.Kills },
+        //                 { "Deaths", playerStats.Deaths },
+        //                 { "Assists", playerStats.Assists },
+        //                 { "Damage", playerStats.Damage },
+        //                 { "Enemy2Ks", playerStats.Enemy2Ks },
+        //                 { "Enemy3Ks", playerStats.Enemy3Ks },
+        //                 { "Enemy4Ks", playerStats.Enemy4Ks },
+        //                 { "Enemy5Ks", playerStats.Enemy5Ks },
+        //                 { "EntryCount", playerStats.EntryCount },
+        //                 { "EntryWins", playerStats.EntryWins },
+        //                 { "1v1Count", playerStats.I1v1Count },
+        //                 { "1v1Wins", playerStats.I1v1Wins },
+        //                 { "1v2Count", playerStats.I1v2Count },
+        //                 { "1v2Wins", playerStats.I1v2Wins },
+        //                 { "UtilityCount", playerStats.Utility_Count },
+        //                 { "UtilitySuccess", playerStats.Utility_Successes },
+        //                 { "UtilityDamage", playerStats.UtilityDamage },
+        //                 { "UtilityEnemies", playerStats.Utility_Enemies },
+        //                 { "FlashCount", playerStats.Flash_Count },
+        //                 { "FlashSuccess", playerStats.Flash_Successes },
+        //                 { "HealthPointsRemovedTotal", playerStats.HealthPointsRemovedTotal },
+        //                 { "HealthPointsDealtTotal", playerStats.HealthPointsDealtTotal },
+        //                 { "ShotsFiredTotal", playerStats.ShotsFiredTotal },
+        //                 { "ShotsOnTargetTotal", playerStats.ShotsOnTargetTotal },
+        //                 { "EquipmentValue", playerStats.EquipmentValue },
+        //                 { "MoneySaved", playerStats.MoneySaved },
+        //                 { "KillReward", playerStats.KillReward },
+        //                 { "LiveTime", playerStats.LiveTime },
+        //                 { "HeadShotKills", playerStats.HeadShotKills },
+        //                 { "CashEarned", playerStats.CashEarned },
+        //                 { "EnemiesFlashed", playerStats.EnemiesFlashed }
+        //             };
+        //             playerPlg.Stats = stats;
+        //         }
+        //     }
+        //
+        // }
     }
 
     [ConsoleCommand("css_unpause", "Unpause the match !")]
@@ -255,9 +269,35 @@ public sealed partial class PLGPlugin
     [ConsoleCommand("css_stay", "team stay !")]
     public void OnStay(CCSPlayerController? player, CommandInfo? command)
     {
+        if (Logger == null)
+        {
+            return;
+        }
+        if (player == null || _playerManager == null || _teams == null)
+        {
+            return;
+        }
         if (_matchManager != null)
         {
-            _matchManager.GoGoGo();
+            var playerPlg = _playerManager.GetPlayer(player.SteamID);
+            if (playerPlg == null || !playerPlg.IsValid)
+            {
+                return;
+            }
+            var idKnife = _matchManager.GetKnifeTeamId();
+            if (idKnife == null)
+            {
+                Logger.Error("idKnife is null");
+                return;
+            }
+            var knifeWinner = _teams.GetTeamById(idKnife.Value);
+            var nameWinner = knifeWinner != null ? knifeWinner.Name : "Unknown";
+
+            if (nameWinner == playerPlg.TeamName)
+            {
+                BroadcastMessage($"L'équipe ${nameWinner} a décidé de Stay ");
+                _matchManager.GoGoGo();
+            }
         }
     }
 
@@ -286,15 +326,110 @@ public sealed partial class PLGPlugin
         }
     }
 
+
+    public void OnJoinTeam(CCSPlayerController? player, CommandInfo? command)
+    {
+        if (Logger == null)
+        {
+            return;
+        }
+        if (player == null || _matchManager == null || _database == null || _playerManager == null || _teams == null)
+        {
+            Logger.Error("No match manager or database or player manager");
+            return;
+        }
+
+        if (player.IsValid)
+        {
+            var side = player.Team;
+            var teamBySide = _teams.GetTeamBySide(side);
+            if (teamBySide == null)
+            {
+                Logger.Error("No team by side");
+                return;
+            }
+            var idTeamToJoin = teamBySide.Id;
+
+            try
+            {
+                var steamId = player.SteamID;
+                var plgPlayer = _playerManager.GetPlayer(steamId);
+                if (plgPlayer == null || !plgPlayer.IsValid)
+                {
+                    Logger.Error("No plg player");
+                    return;
+                }
+                var memberId = plgPlayer.MemberId;
+                if (memberId == null)
+                {
+                    Logger.Error("No member id");
+                    return;
+                }
+                Task.Run(async () =>
+                {
+                    await _database.JoinTeam(memberId, idTeamToJoin);
+                    var playerData = await _database.GetPlayerById(steamId);
+                    Server.NextFrame(() =>
+                    {
+                        if (playerData != null)
+                        {
+                            _playerManager.UpdatePlayerWithData(player, playerData);
+                        }
+                    });
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in HandlePlayerSetup: {ex.Message}");
+            }
+
+        }
+    }
+
+
+
     [ConsoleCommand("css_switch", "switch")]
     public void Switch(CCSPlayerController? player, CommandInfo? command)
     {
-        Server.ExecuteCommand("mp_swapteams;");
 
+        if (Logger == null)
+        {
+            return;
+        }
+        if (player == null || _playerManager == null || _matchManager == null || _teams == null)
+        {
+            Logger.Error("No match manager or no player manager");
+            return;
+        }
         if (_matchManager != null)
         {
-            _matchManager.GoGoGo();
-            _matchManager.ReverseTeamSides();
+            var playerPlg = _playerManager.GetPlayer(player.SteamID);
+            if (playerPlg == null || !playerPlg.IsValid)
+            {
+                Console.WriteLine("EROR: No player");
+                return;
+            }
+            var knifeWinner = _matchManager.GetKnifeTeamId();
+            if (knifeWinner == null)
+            {
+                Logger.Error("No knife winner");
+                return;
+            }
+            var teamWinnerKnife = _teams.GetTeamById(knifeWinner.Value);
+            var nameWinner = teamWinnerKnife != null ? teamWinnerKnife.Name : "Unknown";
+
+            if (nameWinner == playerPlg.TeamName)
+            {
+
+                BroadcastMessage($"L'équipe ${nameWinner} a décidé de Stay ");
+                _teams.ReverseSide();
+                _matchManager.GoGoGo();
+                Server.ExecuteCommand("mp_swapteams;mp_restartgame 1");
+            }
+            else
+            {
+                Logger.Error("No knife winner");
+            }
         }
     }
 
@@ -315,10 +450,12 @@ public sealed partial class PLGPlugin
 
         if (_matchManager == null)
         {
+            Logger?.Error("No match manager");
             return;
         }
-        _matchManager.SetTeamReady(CsTeam.Terrorist, true);
-        _matchManager.SetTeamReady(CsTeam.CounterTerrorist, true);
+
+        _matchManager.SetTeamReadyBySide(CsTeam.Terrorist, true);
+        _matchManager.SetTeamReadyBySide(CsTeam.CounterTerrorist, true);
 
         BroadcastMessage("Match started by admin");
 

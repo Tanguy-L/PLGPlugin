@@ -34,15 +34,27 @@ namespace PLGPlugin
         private string? _matchId;
         private int? _teamWinner;
         private int? _knifeWinner;
-        private List<TeamManager>? _teams;
+        private int? _idTeam1;
+        private int? _idTeam2;
+        private TeamManager? _teamManager;
         // 0 = Terrorist and 1 = CT
         private List<bool>? _teamsReady;
         public MatchState state { get; set; }
 
-        public MatchManager(Database database, PlayerManager playerManager, PlgConfig config, BackupManager backup)
+        public MatchManager(Database database, PlayerManager playerManager, PlgConfig config, BackupManager backup, TeamManager teamManager)
         {
+
             var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
             _logger = loggerFactory.CreateLogger<MatchManager>();
+
+            _logger.LogInformation("MatchManager created");
+            if (_teamManager != null)
+            {
+                _idTeam1 = teamManager?.GetTeamByIndex(0)?.Id;
+                _idTeam2 = teamManager?.GetTeamByIndex(1)?.Id;
+                _logger.LogInformation("team Handled !");
+            }
+            _teamManager = teamManager;
             _pathConfig = config.CfgFolder;
             _playerManager = playerManager;
             _database = database;
@@ -53,105 +65,31 @@ namespace PLGPlugin
 
         public void logAll()
         {
-
-            if (_teams != null)
-            {
-
-                BroadcastMessage("Teams:");
-
-                foreach (var team in _teams)
-                {
-                    var id = team.GetId();
-                    var name = team.GetName();
-                    BroadcastMessage($"id --- {id} name --- {name}");
-                }
-            }
-
-            BroadcastMessage($"State: {state}");
-            BroadcastMessage($"Knife winner: {_knifeWinner}");
-            BroadcastMessage($"Map: {_mapName}");
-            if (_teamsReady != null)
-            {
-                var ready = "";
-                foreach (var isReady in _teamsReady)
-                {
-                    ready += isReady + " ";
-                }
-                BroadcastMessage($"ready: {ready}");
-            }
-
+            Console.WriteLine($"Log State: {state}");
+            Console.WriteLine($"Log Knife winner: {_knifeWinner}");
+            Console.WriteLine($"Log Map: {_mapName}");
         }
 
-        public TeamManager GetTeamByName(string name)
-        {
-            return _teams?.FirstOrDefault(t => t.GetName() == name) ?? throw new Exception($"Team {name} not found");
-        }
-
-        public void InitSetupMatch()
+        public void InitSetupMatch(string hostname)
         {
             state = MatchState.Setup;
             _teamsReady = [false, false];
+            ExecWarmup();
         }
 
-        public void SetWinnerTeam()
+        public void SetWinnerTeam(int id)
         {
-            if (_teams == null)
-            {
-                return;
-            }
-            var score1 = _teams[0].Score;
-            var score2 = _teams[1].Score;
-
-            if (score1 > score2)
-            {
-                _teamWinner = 0;
-            }
-            else if (score2 > score1)
-            {
-                _teamWinner = 1;
-            }
-        }
-
-        public TeamManager? GetWinnerTeam()
-        {
-            return _teams?.FirstOrDefault(t => t.GetId() == _teamWinner);
-        }
-
-
-        public void ReverseTeamSides()
-        {
-            if (_teams == null)
-            {
-                return;
-            }
-            foreach (var team in _teams)
-            {
-                team.ReverseSide();
-            }
-        }
-
-        public List<string>? GetTeamNames()
-        {
-            if (_teams == null)
-            {
-                return null;
-
-            }
-
-            return _teams.Select(t => t.GetName()).ToList();
+            _teamWinner = id;
         }
 
         public void End()
         {
             Server.ExecuteCommand($"tv_stoprecord");
             state = MatchManager.MatchState.Ended;
-
-            BroadcastMessage("Match terminé");
-
             // ExecWarmup();
         }
 
-        public void SetTeamReady(CsTeam side, bool value)
+        public void SetTeamReadyBySide(CsTeam side, bool value)
         {
             int index = -1;
 
@@ -177,18 +115,24 @@ namespace PLGPlugin
             _teamsReady[index] = value;
         }
 
-        public TeamManager? TryGetTeamBySide(CsTeam side)
-        {
-            var teamFound = _teams?.FirstOrDefault(t => t.GetSide() == side);
-            return teamFound;
-        }
-
         private void StartTvRecord()
         {
+            if (_teamManager == null)
+            {
+                PLGPlugin.Instance.Logger?.Error("TeamManager is null");
+                return;
+            }
             DateTime date = DateTime.Now;
             var map = Server.MapName;
             string dateFormatted = date.ToString("dd/MM/yyyy");
-            var title = _matchId + "_" + date + "_" + map + ".dem";
+            var T = _teamManager.GetTeamBySide(CsTeam.Terrorist);
+            var CT = _teamManager.GetTeamBySide(CsTeam.CounterTerrorist);
+            if (T == null || CT == null)
+            {
+                PLGPlugin.Instance.Logger?.Error("T or CT is null");
+                return;
+            }
+            var title = _matchId + "_" + T.Name + "_" + CT.Name + "_" + map + ".dem";
 
             try
             {
@@ -208,7 +152,6 @@ namespace PLGPlugin
             {
                 _logger.LogError($"[StartDemoRecording - FATAL] Error: {ex.Message}.");
             }
-
         }
 
         private (int alivePlayers, int totalHealth) GetAlivePlayers(int team)
@@ -271,8 +214,13 @@ namespace PLGPlugin
             }
         }
 
-        public void DetermineTheKnifeWinner(CsTeam sideOfTeam)
+        public void DetermineTheKnifeWinner()
         {
+            if (_teamManager == null)
+            {
+                PLGPlugin.Instance.Logger?.Error("TeamManager is null");
+                return;
+            }
             CsTeam sideWinner = 0;
 
             (int tAlive, int tHealth) = GetAlivePlayers(2);
@@ -298,46 +246,25 @@ namespace PLGPlugin
                 sideWinner = CsTeam.CounterTerrorist;
             }
 
-            var winner = _teams?.FirstOrDefault(t => t.GetSide() == sideWinner);
-            var id = winner?.GetId();
-            _knifeWinner = id;
-
+            var winner = _teamManager.GetTeamBySide(sideWinner);
+            if (winner == null)
+            {
+                PLGPlugin.Instance.Logger?.Error("No knife winner");
+                return;
+            }
+            _knifeWinner = winner.Id;
             state = MatchState.WaitingForSideChoice;
             ExecWarmup();
+        }
+
+        public int? GetKnifeTeamId()
+        {
+            return _knifeWinner;
         }
 
         public bool IsAllTeamReady()
         {
             return _teamsReady != null && _teamsReady[0] && _teamsReady[1];
-        }
-
-        private async Task<string> CreateTheMatchInDB(string mapName)
-        {
-            var team1 = _teams?.FirstOrDefault(t => t.GetSide() == CsTeam.Terrorist);
-            var team2 = _teams?.FirstOrDefault(t => t.GetSide() == CsTeam.CounterTerrorist);
-            if (team1 == null || team2 == null)
-            {
-                return "Fail";
-            }
-
-            var matchId = await _database.NewMatch(mapName, team1.GetId(), team2.GetId());
-            return matchId;
-        }
-
-        // get teams with corresponding hostname
-        // PLG default, bleu or rouge for LAN
-        // Parse Team into TeamManager
-        private async Task<List<TeamManager>> GetDBTeamsOfMatch(string hostname)
-        {
-            var allTeamPLG = await _database.GetTeamsByHostname(hostname);
-            return allTeamPLG.Select(t => new TeamManager(t)).ToList();
-        }
-
-        public async Task SetTheNewMatchConfig(string hostname, string mapName)
-        {
-            _mapName = mapName;
-            _teams = await GetDBTeamsOfMatch(hostname);
-            _matchId = await CreateTheMatchInDB(mapName);
         }
 
         public async Task RunMatch()
@@ -348,6 +275,16 @@ namespace PLGPlugin
                 _logger.LogError("EROR: hostname not found");
                 return;
             }
+            if (_teamManager == null)
+            {
+                _logger.LogError("EROR: teamManager not found");
+                return;
+            }
+            if (_idTeam1 == null || _idTeam2 == null)
+            {
+                _logger.LogError("EROR: idTeam1 or idTeam2 not found");
+                return;
+            }
             _logger.LogInformation($"Hostname: {hostnameValue.StringValue}");
 
             var hostname = hostnameValue.StringValue;
@@ -355,34 +292,25 @@ namespace PLGPlugin
 
             await Task.Run(async () =>
             {
-                await SetTheNewMatchConfig(hostname, mapName);
+
+                _mapName = mapName;
+                var matchId = await _database.NewMatch(mapName, _idTeam1.Value, _idTeam2.Value);
+                _matchId = matchId;
                 Server.NextFrame(() =>
                 {
                     SetPlayersInTeams();
-                    if (_teams != null)
-                    {
-                        foreach (var team in _teams)
-                        {
-                            var side = team.GetSide();
-                            if (side == CsTeam.CounterTerrorist)
-                            {
-                                Server.ExecuteCommand($"mp_teamname_1 {team.GetName()}");
-                            }
-                            if (side == CsTeam.Terrorist)
-                            {
-                                Server.ExecuteCommand($"mp_teamname_2 {team.GetName()}");
-                            }
-                        }
-                        StartTvRecord();
-                        StartKnife();
+                    var team1Name = _teamManager.GetTeamById(_idTeam1.Value)?.Name;
+                    var team2Name = _teamManager.GetTeamById(_idTeam2.Value)?.Name;
+                    Server.ExecuteCommand($"mp_teamname_1 {team1Name}");
+                    Server.ExecuteCommand($"mp_teamname_2 {team2Name}");
 
-                        var teamName1 = _teams[0].GetName();
-                        var teamName2 = _teams[1].GetName();
+                    StartTvRecord();
+                    StartKnife();
 
-                        BroadcastMessage($"Le match démarre sur {mapName} et avec les équipes {teamName1} et {teamName2}");
-                        BroadcastMessage($"Tapez .switch ou .stay !");
-                    }
+                    Console.WriteLine($"Le match démarre sur {mapName} et avec les équipes {team1Name} et {team2Name}");
+                    Console.WriteLine($"Place à la boucherie");
                 });
+
             });
         }
 
@@ -406,11 +334,19 @@ namespace PLGPlugin
             }
         }
 
+        // to refactor
         public async Task UpdateStatsMatch()
         {
-            if (_teams != null && _matchId != null)
+            if (_teamManager != null && _matchId != null && _teamManager != null && _idTeam1 != null && _idTeam2 != null)
             {
-                await _database.UpdateMatchStats(_matchId, _teams[0], _teams[1]);
+                var team1 = _teamManager.GetTeamById(_idTeam1.Value);
+                var team2 = _teamManager.GetTeamById(_idTeam2.Value);
+                if (team1 == null || team2 == null)
+                {
+                    _logger.LogError("EROR: team not found");
+                    return;
+                }
+                await _database.UpdateMatchStats(_matchId, team1, team2);
                 await _database.UpdatePlayersStats(_playerManager, _matchId);
             }
         }
@@ -418,7 +354,9 @@ namespace PLGPlugin
         private void ExecCfg(string nameFile)
         {
             var relativePath = Path.Join(_pathConfig + nameFile);
-            Server.ExecuteCommand($"exec {relativePath}");
+            var command = $"exec {relativePath}";
+            _logger.LogInformation($"Exec: {command}");
+            Server.ExecuteCommand(command);
         }
 
         private void ExecWarmup()

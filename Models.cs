@@ -11,6 +11,9 @@ public class TeamPLG
     public CsTeam Side { get; set; }
     public required int Id { get; set; }
     public required List<string> Players { get; set; }
+    public int Score { get; set; } = 0;
+    public bool Ready { get; set; } = false;
+    public bool HasPaused { get; set; } = false;
 }
 
 #region Player Models

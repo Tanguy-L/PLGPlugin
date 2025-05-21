@@ -4,45 +4,95 @@ namespace PLGPlugin
 {
     public class TeamManager
     {
-        private TeamPLG _team;
 
-        public int Score { get; set; } = 0;
-        public bool Ready { get; set; } = false;
-        public bool HasPaused { get; set; } = false;
+        private List<TeamPLG>? _teams;
 
-        public TeamManager(TeamPLG teamInit)
+        public TeamManager()
         {
-            _team = teamInit;
+            _teams = new List<TeamPLG>();
         }
 
-        public string? GetPlayerById(string id)
+        public void AddTeam(TeamPLG team)
         {
-            return _team.Players.FirstOrDefault(playerId => playerId == id);
+            if (_teams == null)
+            {
+                PLGPlugin.Instance.Logger?.Error("Teams is null");
+                return;
+            }
+            _teams.Add(team);
         }
 
-        public bool IsReady()
+        public TeamPLG? GetTeamByIndex(int index)
         {
-            return Ready;
+            if (_teams == null)
+            {
+                PLGPlugin.Instance.Logger?.Error("Teams is null");
+                return null;
+            }
+            return _teams[index];
         }
 
-        public CsTeam GetSide()
+        public TeamPLG? GetTeamById(int id)
         {
-            return _team.Side;
+            if (_teams == null)
+            {
+                PLGPlugin.Instance.Logger?.Error("Teams is null");
+                return null;
+            }
+            var result = _teams.FirstOrDefault(t => t.Id == id);
+            if (result == null)
+            {
+                PLGPlugin.Instance.Logger?.Error($"Team with id {id} not found");
+                return null;
+            }
+            return result;
+        }
+
+        public TeamPLG? GetTeamBySide(CsTeam side)
+        {
+            if (_teams == null)
+            {
+                PLGPlugin.Instance.Logger?.Error("Teams is null");
+                return null;
+            }
+            var result = _teams.FirstOrDefault(t => t.Side == side);
+            if (result == null)
+            {
+                PLGPlugin.Instance.Logger?.Error($"Team with side {side} not found");
+                return null;
+            }
+            return result;
         }
 
         public void ReverseSide()
         {
-            _team.Side = _team.Side == CsTeam.CounterTerrorist ? CsTeam.Terrorist : CsTeam.CounterTerrorist;
+            if (_teams == null)
+            {
+                PLGPlugin.Instance.Logger?.Error("Teams is null");
+                return;
+            }
+            _teams.ForEach(t => t.Side = t.Side == CsTeam.CounterTerrorist ? CsTeam.Terrorist : CsTeam.CounterTerrorist);
         }
 
-        public string GetName()
+        public bool isSomeTeamWithName(string nameTeam)
         {
-            return _team.Name;
+            if (_teams == null)
+            {
+                return false;
+            }
+            return _teams.Any(t => t.Name == nameTeam);
         }
 
-        public int GetId()
+        public int? IdOfBestTeam()
         {
-            return _team.Id;
+            if (_teams == null)
+            {
+                PLGPlugin.Instance.Logger?.Error("Teams is null");
+                return null;
+            }
+
+            return this._teams.MaxBy(t => t.Score)?.Id;
+
         }
     }
 }
