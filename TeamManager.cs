@@ -12,6 +12,17 @@ namespace PLGPlugin
             _teams = new List<TeamPLG>();
         }
 
+        public void ClearTeams()
+        {
+            if (_teams == null)
+            {
+                PLGPlugin.Instance.Logger?.Error("Teams is null");
+                return;
+            }
+            _teams.Clear();
+            _teams = null;
+        }
+
         public void AddTeam(TeamPLG team)
         {
             if (_teams == null)

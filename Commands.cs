@@ -13,15 +13,37 @@ public sealed partial class PLGPlugin
     {
         if (_playerManager != null)
         {
+            _playerManager.ClearCache();
             var allPlayers = Utilities.GetPlayers();
-            foreach (var playerPlg in allPlayers)
+            foreach (var playerController in allPlayers)
             {
-                _playerManager.ClearCache();
                 Server.NextFrame(async () =>
                 {
-                    await _playerManager.AddPlgPlayer(playerPlg);
+                    await _playerManager.AddPlgPlayer(playerController);
                 });
             }
+        }
+    }
+
+    [ConsoleCommand("css_match_status", "Get the status of match manager")]
+    public void GetMatchManagerStatus(CCSPlayerController? player, CommandInfo? command)
+    {
+        if (player == null)
+        {
+            Logger?.Error("Player is null");
+            return;
+        }
+
+        if (_matchManager == null)
+        {
+            ReplyToUserCommand(player, $"[{ChatColors.Red} Match Manager is null]{ChatColors.Default}");
+            ReplyToUserCommand(player, $"[{ChatColors.Green}Type .match_on to start it ! {ChatColors.Default}");
+        }
+
+        if (_matchManager != null)
+        {
+            var state = _matchManager.state;
+            ReplyToUserCommand(player, $"[{ChatColors.Red} Match Manager is {state.ToString()}]{ChatColors.Default}");
         }
     }
 
@@ -33,7 +55,7 @@ public sealed partial class PLGPlugin
         }
         if (_matchManager == null || _teams == null)
         {
-            Logger?.Error("MatchManager or Teams is null");
+            Logger?.Info("MatchManager or Teams is null");
             return;
         }
         var side = player.Team;
@@ -86,8 +108,11 @@ public sealed partial class PLGPlugin
             return;
         }
         var allColors = SmokeColorPalette.GetAllColorKeys();
-        var stringColors = string.Join("\n", allColors);
-        player.PrintToChat(stringColors);
+        player.PrintToChat("Couleurs (.smoke maCouleur) :");
+        foreach (var color in allColors)
+        {
+            player.PrintToChat(color);
+        }
     }
 
     [ConsoleCommand("css_list", "Show list of the players")]
@@ -138,89 +163,63 @@ public sealed partial class PLGPlugin
             BroadcastMessage($"{team.Score}");
 
         }
-
-        // foreach (var _player in allPlayers)
-        // {
-        //     var id = _player.SteamID;
-        //     var playerPlg = _playerManager.GetPlayer(id);
-        //     Console.WriteLine("PlayerId: " + id);
-        //     if (playerPlg != null)
-        //     {
-        //         if (_player != null && _player.ActionTrackingServices != null)
-        //         {
-        //             var playerStats = _player.ActionTrackingServices.MatchStats;
-        //
-        //             Dictionary<string, object> stats = new Dictionary<string, object>
-        //             {
-        //                 { "PlayerName", player.PlayerName },
-        //                 { "Kills", playerStats.Kills },
-        //                 { "Deaths", playerStats.Deaths },
-        //                 { "Assists", playerStats.Assists },
-        //                 { "Damage", playerStats.Damage },
-        //                 { "Enemy2Ks", playerStats.Enemy2Ks },
-        //                 { "Enemy3Ks", playerStats.Enemy3Ks },
-        //                 { "Enemy4Ks", playerStats.Enemy4Ks },
-        //                 { "Enemy5Ks", playerStats.Enemy5Ks },
-        //                 { "EntryCount", playerStats.EntryCount },
-        //                 { "EntryWins", playerStats.EntryWins },
-        //                 { "1v1Count", playerStats.I1v1Count },
-        //                 { "1v1Wins", playerStats.I1v1Wins },
-        //                 { "1v2Count", playerStats.I1v2Count },
-        //                 { "1v2Wins", playerStats.I1v2Wins },
-        //                 { "UtilityCount", playerStats.Utility_Count },
-        //                 { "UtilitySuccess", playerStats.Utility_Successes },
-        //                 { "UtilityDamage", playerStats.UtilityDamage },
-        //                 { "UtilityEnemies", playerStats.Utility_Enemies },
-        //                 { "FlashCount", playerStats.Flash_Count },
-        //                 { "FlashSuccess", playerStats.Flash_Successes },
-        //                 { "HealthPointsRemovedTotal", playerStats.HealthPointsRemovedTotal },
-        //                 { "HealthPointsDealtTotal", playerStats.HealthPointsDealtTotal },
-        //                 { "ShotsFiredTotal", playerStats.ShotsFiredTotal },
-        //                 { "ShotsOnTargetTotal", playerStats.ShotsOnTargetTotal },
-        //                 { "EquipmentValue", playerStats.EquipmentValue },
-        //                 { "MoneySaved", playerStats.MoneySaved },
-        //                 { "KillReward", playerStats.KillReward },
-        //                 { "LiveTime", playerStats.LiveTime },
-        //                 { "HeadShotKills", playerStats.HeadShotKills },
-        //                 { "CashEarned", playerStats.CashEarned },
-        //                 { "EnemiesFlashed", playerStats.EnemiesFlashed }
-        //             };
-        //             playerPlg.Stats = stats;
-        //         }
-        //     }
-        //
-        // }
     }
 
     [ConsoleCommand("css_unpause", "Unpause the match !")]
     public void OnUnpauseCommand(CCSPlayerController? player, CommandInfo? command)
     {
-        UnPauseMatch(player, command);
-
-        if (_matchManager != null)
+        if (player == null)
         {
-            _matchManager.state = MatchManager.MatchState.Live;
+            return;
         }
+        UnPauseMatch();
+
+        HandlePause(player, false);
     }
 
     [ConsoleCommand("css_warmup", "Warmup")]
     public void Warmup(CCSPlayerController? player, CommandInfo? command)
     {
+        if (_matchManager != null)
+        {
+            if (_matchManager.state == MatchManager.MatchState.Ended)
+            {
+                ReplyToUserCommand(player, $"[{ChatColors.Red}Cant do warmup when the match is ended !{ChatColors.Default}]");
+                ReplyToUserCommand(player, $"[{ChatColors.Green}Use .match_new to make a new match{ChatColors.Default}]");
+            }
+            ReplyToUserCommand(player, $"[{ChatColors.Red}]Cant do warmup when the match is on{ChatColors.Default}");
+            return;
+        }
         ExecWarmup();
+
+        ReplyToUserCommand(player, $"[{ChatColors.Green}Warmup done !{ChatColors.Default}]");
     }
 
     [ConsoleCommand("css_map", "Changes the map using changelevel")]
     public void OnChangeMapCommand(CCSPlayerController? player, CommandInfo command)
     {
+        if (_matchManager?.state == MatchManager.MatchState.Live)
+        {
+            ReplyToUserCommand(player, "Cant change map while the match is live, use match_off to stop it.");
+            return;
+        }
         var mapName = command.ArgByIndex(1);
         HandleMapChangeCommand(player, mapName);
     }
 
-    [ConsoleCommand("css_start", "Warmup")]
+    [ConsoleCommand("css_start", "Execute a match cfg")]
     public void StartLive(CCSPlayerController? player, CommandInfo? command)
     {
+        if (player == null)
+        {
+            return;
+        }
+
         StartLive();
+
         RecordTheDemo();
+
+        ReplyToUserCommand(player, $"[{ChatColors.Green}Live config started !{ChatColors.Default}]");
     }
 
     [ConsoleCommand("css_lbackups", "Get 3 last backups files")]
@@ -263,7 +262,29 @@ public sealed partial class PLGPlugin
     [ConsoleCommand("css_knife", "knife")]
     public void StartKnife(CCSPlayerController? player, CommandInfo? command)
     {
-        StartKnife();
+        if (player == null)
+        {
+            return;
+        }
+        if (_matchManager != null)
+        {
+            if (_matchManager.state == MatchManager.MatchState.Ended)
+            {
+                ReplyToUserCommand(player, $"[{ChatColors.Red}Cant do knife when the match is ended !{ChatColors.Default}]");
+                ReplyToUserCommand(player, $"[{ChatColors.Green}Use .match_new to make a new match{ChatColors.Default}]");
+            }
+            else
+            {
+                ReplyToUserCommand(player, $"[{ChatColors.Red}Cant do knife while the match is live !{ChatColors.Default}]");
+            }
+
+        }
+        else
+        {
+            StartKnife();
+            ReplyToUserCommand(player, $"[{ChatColors.Green}Knife done !{ChatColors.Default}]");
+        }
+
     }
 
     [ConsoleCommand("css_stay", "team stay !")]
@@ -302,13 +323,41 @@ public sealed partial class PLGPlugin
     }
 
     [ConsoleCommand("css_no_match", "Remove the match manager ! (set it to null)")]
-    public void OnNoMatch(CCSPlayerController? player, CommandInfo? command)
+    public void MatchManagerOff(CCSPlayerController? player, CommandInfo? command)
     {
+        if (player == null)
+        {
+            Logger?.Error("No player");
+            return;
+        }
         if (_matchManager != null)
         {
             _matchManager = null;
-
+            ReplyToUserCommand(player, "MatchManager is set to off");
         }
+        else
+        {
+            ReplyToUserCommand(player, "MatchManager is already off");
+        }
+    }
+
+    [ConsoleCommand("css_match_on", "Set MatchManager to true !")]
+    public void MatchManagerOn(CCSPlayerController? player, CommandInfo? command)
+    {
+        if (player == null)
+        {
+            Logger?.Error("No player");
+            return;
+        }
+        if (_matchManager != null)
+        {
+            ReplyToUserCommand(player, "MatchManager is already on");
+            return;
+        }
+
+        InitMatchManager();
+        _matchManager = null;
+        ReplyToUserCommand(player, "MatchManager is set to on");
     }
 
     [ConsoleCommand("css_stop_tv", "Stop the current record tv")]
@@ -386,8 +435,6 @@ public sealed partial class PLGPlugin
         }
     }
 
-
-
     [ConsoleCommand("css_switch", "switch")]
     public void Switch(CCSPlayerController? player, CommandInfo? command)
     {
@@ -401,7 +448,7 @@ public sealed partial class PLGPlugin
             Logger.Error("No match manager or no player manager");
             return;
         }
-        if (_matchManager != null)
+        if (_matchManager != null && _matchManager.state == MatchManager.MatchState.WaitingForSideChoice)
         {
             var playerPlg = _playerManager.GetPlayer(player.SteamID);
             if (playerPlg == null || !playerPlg.IsValid)
@@ -436,12 +483,12 @@ public sealed partial class PLGPlugin
     [ConsoleCommand("css_pause", "pause the match")]
     public void OnPauseCommand(CCSPlayerController? player, CommandInfo? command)
     {
-        PauseMatch(player, command);
-
-        if (_matchManager != null)
+        if (player == null)
         {
-            _matchManager.state = MatchManager.MatchState.Paused;
+            return;
         }
+        PauseMatch();
+        HandlePause(player);
     }
 
     [ConsoleCommand("css_match", "start a PLG match")]

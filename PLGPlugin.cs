@@ -1,6 +1,5 @@
 ﻿using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
-using CounterStrikeSharp.API.Modules.Cvars;
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Commands;
@@ -72,13 +71,11 @@ public sealed partial class PLGPlugin : BasePlugin, IPluginConfig<PlgConfig>
         var coreLogger = loggerFactory.CreateLogger<PLGPlugin>();
 
         LoggingService.Initialize(coreLogger,
-            printToConsole: true,
-            printToChat: true,
+            printToConsole: false,
+            printToChat: false,
             printToServer: true);
 
         Logger = LoggingService.Instance;
-
-        Logger.Info($"PLGPlugin v{ModuleVersion} is loading.");
 
         if (Logger == null)
         {
@@ -91,7 +88,6 @@ public sealed partial class PLGPlugin : BasePlugin, IPluginConfig<PlgConfig>
         // loading basics
         if (_database != null)
         {
-            Logger?.Info("Database connected");
             _playerManager = new(_database);
             _teams = new();
         }
@@ -101,120 +97,18 @@ public sealed partial class PLGPlugin : BasePlugin, IPluginConfig<PlgConfig>
 
         // ---------------
         // LOAD EVERYTHING
-        if (_database != null && _playerManager != null && _backup != null && _teams != null)
-        {
-            try
-            {
-                _matchManager = new MatchManager(_database, _playerManager, Config, _backup, _teams);
-                Logger?.Info("Match manager initialized successfully");
-
-                if (Config.StartOnMatch && _matchManager != null)
-                {
-                    var hostnameValue = ConVar.Find("hostname")?.StringValue;
-                    if (string.IsNullOrEmpty(hostnameValue))
-                    {
-                        Logger?.Warning("Cannot initialize match: hostname is null or empty");
-                        return;
-                    }
-
-                    // Handle async database operations properly
-                    Server.NextFrame(async () =>
-                    {
-                        try
-                        {
-                            var teams = await _database.GetTeamsByHostname(hostnameValue);
-
-                            // Validate teams data
-                            if (teams == null || teams.Count < 2)
-                            {
-                                Logger?.Error($"Failed to load teams for hostname: {hostnameValue}. Not enough teams returned.");
-                                return;
-                            }
-
-                            // Schedule UI updates on the main thread
-                            Server.NextFrame(() =>
-                            {
-                                try
-                                {
-                                    // Reinitialize teams manager with loaded data
-                                    _teams = new TeamManager();
-                                    _teams.AddTeam(teams[0]);
-                                    _teams.AddTeam(teams[1]);
-
-                                    // Initialize the match
-                                    _matchManager.InitSetupMatch(hostnameValue);
-                                    Logger?.Info($"Match initialized successfully for {hostnameValue}");
-                                }
-                                catch (Exception ex)
-                                {
-                                    Logger?.Error($"Error during match setup: {ex.Message}");
-                                }
-                            });
-                        }
-                        catch (Exception ex)
-                        {
-                            Logger?.Error($"Database error when fetching teams: {ex.Message}");
-                        }
-                    });
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger?.Error($"Failed to initialize match manager: {ex.Message}");
-            }
-        }
-        else
-        {
-            // More descriptive error that indicates exactly what's missing
-            Logger?.Error($"Cannot initialize match manager. Missing dependencies: " +
-                         $"{(_database == null ? "database " : "")}" +
-                         $"{(_playerManager == null ? "playerManager " : "")}" +
-                         $"{(_backup == null ? "backup " : "")}" +
-                         $"{(_teams == null ? "teams" : "")}");
-        }
-
-
-        // if (_database != null && _playerManager != null && _backup != null && _teams != null)
-        // {
-        //     _matchManager = new MatchManager(_database, _playerManager, Config, _backup, _teams);
-        //     Logger?.Info("Load everything");
-        //     if (Config.StartOnMatch && _matchManager != null)
-        //     {
-        //         var hostnameValue = ConVar.Find("hostname")?.StringValue;
-        //         if (hostnameValue != null)
-        //         {
-        //             Server.NextFrame(async () =>
-        //             {
-        //
-        //                 var teams = await _database.GetTeamsByHostname(hostnameValue);
-        //                 Server.NextFrame(() =>
-        //                 {
-        //                     Logger?.Info($"teams: {teams[0].Name} {teams[1].Name}");
-        //
-        //                     _teams = new TeamManager();
-        //                     _teams.AddTeam(teams[0]);
-        //                     _teams.AddTeam(teams[1]);
-        //                     _matchManager.InitSetupMatch(hostnameValue);
-        //                 });
-        //
-        //                 Logger?.Info("Match initialized");
-        //             });
-        //         }
-        //     }
-        // }
-        // else
-        // {
-        //     Logger?.Error("Miss _database or _playerManager or _backup or _teams");
-        // }
+        InitMatchManager();
 
         // ---------------
         // CHECK INIT
         if (Logger != null)
         {
+            Logger.Info("-------- PLG ---------");
             Logger.Info(_database != null ? "Database connected" : "No database");
             Logger.Info(_playerManager != null ? "Player manager created" : "No player manager");
             Logger.Info(_backup != null ? "Backup manager created" : "No backup manager");
             Logger.Info(_teams != null ? "Team manager created" : "No team manager");
+            Logger.Info("-------- PLG ---------");
         }
 
         InitializeEvents();
@@ -223,10 +117,11 @@ public sealed partial class PLGPlugin : BasePlugin, IPluginConfig<PlgConfig>
         Dictionary<string, Action<CCSPlayerController?, CommandInfo?>> commandActions = new()
         {
             { ".load", LoadPlayerCache },
+            { ".match_status", GetMatchManagerStatus },
+            { ".list", ListPlayers },
             { ".stop_tv", OnStopRecordTv },
             { ".ready", OnReady },
             { ".unready", OnUnready },
-            { ".list", ListPlayers },
             { ".colors", PrintColors },
             { ".match", OnStartPLGMatch},
             { ".warmup", Warmup },
@@ -238,7 +133,8 @@ public sealed partial class PLGPlugin : BasePlugin, IPluginConfig<PlgConfig>
             { ".pause", OnPauseCommand },
             { ".unpause", OnUnpauseCommand },
             { ".set_teams", OnSetTeams },
-            { ".no_match", OnNoMatch },
+            { ".match_off", MatchManagerOff },
+            { ".match_on", MatchManagerOn },
             { ".lbackups", OnGetBackups },
             { ".test", OnTestCommand },
         };

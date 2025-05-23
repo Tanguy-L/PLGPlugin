@@ -63,13 +63,6 @@ namespace PLGPlugin
             state = MatchState.None;
         }
 
-        public void logAll()
-        {
-            Console.WriteLine($"Log State: {state}");
-            Console.WriteLine($"Log Knife winner: {_knifeWinner}");
-            Console.WriteLine($"Log Map: {_mapName}");
-        }
-
         public void InitSetupMatch(string hostname)
         {
             state = MatchState.Setup;

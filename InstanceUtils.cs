@@ -1,7 +1,7 @@
 using CounterStrikeSharp.API;
+using CounterStrikeSharp.API.Modules.Cvars;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Admin;
-using CounterStrikeSharp.API.Modules.Commands;
 using CounterStrikeSharp.API.Modules.Utils;
 
 namespace PLGPlugin
@@ -109,6 +109,31 @@ namespace PLGPlugin
             ExecCfg("match.cfg");
         }
 
+        public void HandlePause(CCSPlayerController player, bool isPause = true)
+        {
+            var pauseMessage = isPause ? "Paused by" : "Unpaused by";
+            if (_matchManager != null && _playerManager != null)
+            {
+                var plgPlayer = _playerManager.GetPlayer(player.SteamID);
+                if (plgPlayer != null && plgPlayer.IsValid)
+                {
+                    var teamPlayer = plgPlayer.TeamName;
+                    BroadcastMessage($"{pauseMessage} {plgPlayer.PlayerName} in team {teamPlayer}");
+
+                }
+                _matchManager.state = isPause ? MatchManager.MatchState.Paused : MatchManager.MatchState.Live;
+            }
+
+            if (isPause)
+            {
+                PauseMatch();
+            }
+            else
+            {
+                UnPauseMatch();
+            }
+        }
+
         public void RecordTheDemo()
         {
             string formattedTime = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
@@ -126,14 +151,106 @@ namespace PLGPlugin
             Server.ExecuteCommand($"tv_record ./demos/{titleDemo}");
         }
 
-        private void PauseMatch(CCSPlayerController? player, CommandInfo? command)
+        private void PauseMatch()
         {
             Server.ExecuteCommand("mp_pause_match");
         }
 
-        private void UnPauseMatch(CCSPlayerController? player, CommandInfo? command)
+        private void UnPauseMatch()
         {
             Server.ExecuteCommand("mp_unpause_match");
+        }
+
+        private void ClearMatchManager()
+        {
+            if (_teams == null)
+            {
+                PLGPlugin.Instance.Logger?.Error("Teams is null");
+                return;
+            }
+            _teams.ClearTeams();
+
+            if (_matchManager == null)
+            {
+                PLGPlugin.Instance.Logger?.Error("MatchManager is null");
+                return;
+            }
+            _matchManager = null;
+        }
+
+        private void InitMatchManager()
+        {
+            if (_database != null && _playerManager != null && _backup != null)
+            {
+                try
+                {
+                    _teams = new TeamManager();
+                    Logger?.Info("Match manager initialized successfully");
+
+                    if (Config.StartOnMatch && _teams != null)
+                    {
+                        var hostnameValue = ConVar.Find("hostname")?.StringValue;
+                        if (string.IsNullOrEmpty(hostnameValue))
+                        {
+                            Logger?.Warning("Cannot initialize match: hostname is null or empty");
+                            return;
+                        }
+
+                        // Handle async database operations properly
+                        Server.NextFrame(async () =>
+                        {
+                            try
+                            {
+                                var teams = await _database.GetTeamsByHostname(hostnameValue);
+
+                                // Validate teams data
+                                if (teams == null || teams.Count < 2)
+                                {
+                                    Logger?.Error($"Failed to load teams for hostname: {hostnameValue}. Not enough teams returned.");
+                                    return;
+                                }
+
+                                // Schedule UI updates on the main thread
+                                Server.NextFrame(() =>
+                                {
+                                    try
+                                    {
+                                        // Reinitialize teams manager with loaded data
+                                        _teams.AddTeam(teams[0]);
+                                        _teams.AddTeam(teams[1]);
+
+                                        _matchManager = new MatchManager(_database, _playerManager, Config, _backup, _teams);
+                                        // Initialize the match
+                                        _matchManager.InitSetupMatch(hostnameValue);
+                                        Logger?.Info($"Match initialized successfully for {hostnameValue}");
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Logger?.Error($"Error during match setup: {ex.Message}");
+                                    }
+                                });
+                            }
+                            catch (Exception ex)
+                            {
+                                Logger?.Error($"Database error when fetching teams: {ex.Message}");
+                            }
+                        });
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger?.Error($"Failed to initialize match manager: {ex.Message}");
+                }
+            }
+            else
+            {
+                // More descriptive error that indicates exactly what's missing
+                Logger?.Error($"Cannot initialize match manager. Missing dependencies: " +
+                             $"{(_database == null ? "database " : "")}" +
+                             $"{(_playerManager == null ? "playerManager " : "")}" +
+                             $"{(_backup == null ? "backup " : "")}" +
+                             $"{(_teams == null ? "teams" : "")}");
+            }
         }
 
         private void SendAvailableCommandsMessage(CCSPlayerController? player)
@@ -147,15 +264,16 @@ namespace PLGPlugin
                     player,
                     $"{ChatColors.Red}----[INFOS ADMINS]----{ChatColors.Default}"
                 );
-                ReplyToUserCommand(player, "PLG Mode : .match");
-                ReplyToUserCommand(player, "Match : .start .warmup .knife .switch");
-                ReplyToUserCommand(player, "Backups : .lbackups, .restore <filename>");
-                ReplyToUserCommand(player, "Pause : .pause .unpause");
+                ReplyToUserCommand(player, "Player Manager : .load (reload players cache)");
+                ReplyToUserCommand(player, "Match mode: .match_on -- .match_off");
+                ReplyToUserCommand(player, "Match : .start -- .warmup -- .knife -- .switch");
+                ReplyToUserCommand(player, "Backups : .lbackups -- .restore <filename>");
+                ReplyToUserCommand(player, "Pause : .pause -- .unpause");
                 ReplyToUserCommand(player, "Players : .list");
                 ReplyToUserCommand(player, "DB : .set_teams");
             }
             ReplyToUserCommand(player, $"{ChatColors.White}----[INFOS]----{ChatColors.Default}");
-            ReplyToUserCommand(player, "smoke : .smoke <red>, .colors");
+            ReplyToUserCommand(player, "smoke : .smoke <red> -- .colors");
         }
 
         private void HandleMapChangeCommand(CCSPlayerController? player, string mapName)

@@ -261,8 +261,10 @@ namespace PLGPlugin
                 if (teamWinnferKnife != null)
                 {
                     var nameTeam = teamWinnferKnife.Name;
-                    BroadcastMessage($"L'équipe ${nameTeam} a remporté le couteau et décide son side");
+                    BroadcastMessage($"L'équipe {nameTeam} a remporté le couteau et décide son side");
                     BroadcastMessage($".switch ou .stay");
+                    _matchManager.state = MatchManager.MatchState.WaitingForSideChoice;
+                    ExecWarmup();
                 }
                 else
                 {
@@ -322,7 +324,7 @@ namespace PLGPlugin
                         if (team != null)
                         {
                             Logger.Info($"team: {team.Name}");
-                            player.PrintToChat($"[OPTIONNEL] Tu n'es pas dans une equipe, .join pour rejoindre l'équipe ${team.Name}");
+                            ReplyToUserCommand(player, $"[OPTIONNEL] Tu n'es pas dans une equipe,{ChatColors.Green} .join pour rejoindre l'équipe {team.Name} {ChatColors.Default}");
                         }
                     }
                 }
@@ -342,8 +344,8 @@ namespace PLGPlugin
                     {
                         await _playerManager.AddPlgPlayer(playerId);
                     });
-                    playerId.PrintToChat($"{ChatPrefix} Bienvenue dans le serveur PLG !");
-                    playerId.PrintToChat($"{ChatPrefix} Tapez .help pour voir la liste des commandes");
+                    ReplyToUserCommand(playerId, "Bienvenue dans le serveur PLG !");
+                    ReplyToUserCommand(playerId, "Tapez .help pour voir la liste des commandes");
                 }
             }
             if (_sounds != null)
