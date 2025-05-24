@@ -19,6 +19,7 @@ namespace PLGPlugin
                 return;
             }
 
+            Console.WriteLine("PlayerManager is disposed.");
             throw new ObjectDisposedException(nameof(PlayerManager));
         }
 
@@ -36,7 +37,7 @@ namespace PLGPlugin
         public void AddOrUpdatePlayer(PlgPlayer player)
         {
             ThrowIfDisposed();
-            _logger.Debug($"Adding or updating player: {player.SteamID} - {player.PlayerName}");
+            Console.WriteLine($"Adding or updating player: {player.SteamID} - {player.PlayerName}");
             PlgPlayer plgPlayer = _players.AddOrUpdate(player.SteamID, player, (_, _) => player);
 
         }
@@ -83,7 +84,7 @@ namespace PLGPlugin
 
         public async Task AddPlgPlayer(CCSPlayerController playerController)
         {
-            ThrowIfDisposed();
+            // ThrowIfDisposed();
             if (playerController != null)
             {
                 PlgPlayer playerPLG = new(playerController);

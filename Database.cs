@@ -327,7 +327,7 @@ namespace PLGPlugin
         {
             try
             {
-                await using var connection = await GetOpenConnectionAsync();
+                await using MySqlConnection connection = await GetOpenConnectionAsync();
                 string query =
                     @"INSERT INTO plg.members (steam_id, weight, is_logged_in, smoke_color, discord_id, discord_name)
                              VALUES (@SteamID, @Weight, @IsLoggedIn, @SmokeColor, 0, @DiscordName);
@@ -340,10 +340,11 @@ namespace PLGPlugin
                     SmokeColor = "red",
                     DiscordName = player.PlayerName ?? "test",
                 };
-                await connection.ExecuteAsync(query, parameters);
+                _ = await connection.ExecuteAsync(query, parameters);
             }
             catch (System.Exception)
             {
+                Console.WriteLine($"Error creating player in DB: {player.SteamID}");
                 throw;
             }
         }
@@ -352,7 +353,7 @@ namespace PLGPlugin
         {
             try
             {
-                await using var connection = await GetOpenConnectionAsync();
+                await using MySqlConnection connection = await GetOpenConnectionAsync();
                 string query =
                     $@"SELECT
                      m.discord_id DiscordId,
@@ -381,9 +382,9 @@ namespace PLGPlugin
                 );
                 return playerDB;
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
-                _logger.LogError(ex, "Database connection error on GetPlayerById");
+                Console.WriteLine($"Error retrieving player by ID {steamId}: {ex.Message}");
                 throw;
             }
         }

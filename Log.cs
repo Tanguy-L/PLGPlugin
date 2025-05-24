@@ -58,40 +58,152 @@ namespace PLGPlugin
 
         public void Log(string message, LogLevel level = LogLevel.Info)
         {
-            string prefixedMessage = $"{_pluginPrefix} : {message}";
+            // string prefixedMessage = $"{_pluginPrefix} : {message}";
+
+            string serverPrefix = GetServerPrefix(level);
+            string consolePrefix = GetConsolePrefix(level);
+
+            string serverMessage = $"{serverPrefix} : {message}";
+            string consoleMessage = $"{consolePrefix} : {message}";
 
             // Log to the logger
-            switch (level)
-            {
-                case LogLevel.Debug:
-                    _logger.LogDebug(prefixedMessage);
-                    break;
-                case LogLevel.Info:
-                    _logger.LogInformation(prefixedMessage);
-                    break;
-                case LogLevel.Warning:
-                    _logger.LogWarning(prefixedMessage);
-                    break;
-                case LogLevel.Error:
-                    _logger.LogError(prefixedMessage);
-                    break;
-                case LogLevel.Critical:
-                    _logger.LogCritical(prefixedMessage);
-                    break;
-                default:
-                    break;
-            }
-
+            // switch (level)
+            // {
+            //     case LogLevel.Debug:
+            //         _logger.LogDebug(prefixedMessage);
+            //         break;
+            //     case LogLevel.Info:
+            //         _logger.LogInformation(prefixedMessage);
+            //         break;
+            //     case LogLevel.Warning:
+            //         _logger.LogWarning(prefixedMessage);
+            //         break;
+            //     case LogLevel.Error:
+            //         _logger.LogError(prefixedMessage);
+            //         break;
+            //     case LogLevel.Critical:
+            //         _logger.LogCritical(prefixedMessage);
+            //         break;
+            //     default:
+            //         break;
+            // }
+            //
             // Print to console
+            // if (_printToConsole)
+            // {
+            //     Console.WriteLine(prefixedMessage);
+            // }
+            //
+            // // Print to server
+            // if (_printToServer)
+            // {
+            //     Server.PrintToConsole(prefixedMessage);
+            // }
+            //
             if (_printToConsole)
             {
-                Console.WriteLine(prefixedMessage);
+                WriteColoredConsole(consoleMessage, level);
             }
 
-            // Print to server
+            // Print to server console (no colors, but with level indicators)
             if (_printToServer)
             {
-                Server.PrintToConsole(prefixedMessage);
+                try
+                {
+                    // Schedule for main thread if called from background thread
+                    Server.NextFrame(() =>
+                    {
+                        try
+                        {
+                            Server.PrintToConsole(serverMessage);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[PLG-FALLBACK] {serverMessage} (Server.PrintToConsole failed: {ex.Message})");
+                        }
+                    });
+                }
+                catch (Exception ex)
+                {
+                    // Fallback to console if Server API fails
+                    Console.WriteLine($"[PLG-FALLBACK] {serverMessage} (Server.PrintToConsole error: {ex.Message})");
+                }
+            }
+        }
+
+        private static string GetServerPrefix(LogLevel level)
+        {
+            return level switch
+            {
+                LogLevel.Debug => "[PLG-DEBUG]",
+                LogLevel.Info => "[PLG-INFO]",
+                LogLevel.Warning => "[PLG-WARN]",
+                LogLevel.Error => "[PLG-ERROR]",
+                LogLevel.Critical => "[PLG-CRITICAL]",
+                _ => "[PLG]"
+            };
+        }
+
+        private static string GetConsolePrefix(LogLevel level)
+        {
+            return level switch
+            {
+                LogLevel.Debug => "[PLG-DEBUG]",
+                LogLevel.Info => "[PLG-INFO]",
+                LogLevel.Warning => "[PLG-WARN]",
+                LogLevel.Error => "[PLG-ERROR]",
+                LogLevel.Critical => "[PLG-CRITICAL]",
+                _ => "[PLG]"
+            };
+        }
+
+        public void Error(string message, Exception? ex = null)
+        {
+            if (ex != null)
+            {
+                Log($"{message} | Exception: {ex.Message}", LogLevel.Error);
+                if (!string.IsNullOrEmpty(ex.StackTrace))
+                {
+                    Log($"Stack Trace: {ex.StackTrace}", LogLevel.Debug);
+                }
+
+                // Log inner exceptions
+                Exception? innerEx = ex.InnerException;
+                int depth = 1;
+                while (innerEx != null && depth <= 3) // Limit depth to avoid spam
+                {
+                    Log($"Inner Exception ({depth}): {innerEx.Message}", LogLevel.Error);
+                    innerEx = innerEx.InnerException;
+                    depth++;
+                }
+            }
+            else
+            {
+                Log(message, LogLevel.Error);
+            }
+        }
+
+        private static void WriteColoredConsole(string message, LogLevel level)
+        {
+            ConsoleColor originalColor = Console.ForegroundColor;
+
+            try
+            {
+                Console.ForegroundColor = level switch
+                {
+                    LogLevel.Debug => ConsoleColor.Green,
+                    LogLevel.Info => ConsoleColor.Cyan,
+                    LogLevel.Warning => ConsoleColor.Yellow,
+                    LogLevel.Error => ConsoleColor.Red,
+                    LogLevel.Critical => ConsoleColor.Red,
+                    _ => ConsoleColor.White
+                };
+
+                Console.WriteLine(message);
+            }
+            finally
+            {
+                Console.ForegroundColor = originalColor;
             }
         }
 

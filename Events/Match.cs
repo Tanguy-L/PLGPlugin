@@ -78,6 +78,14 @@ namespace PLGPlugin
             // 2 = T, 3 = CT, 1 = Spectator, 0 = Unassigned
             int newTeamId = @event.Team;
 
+            if (player != null)
+            {
+                if (player.IsBot)
+                {
+                    return HookResult.Continue;
+                }
+            }
+
             if (player == null || _playerManager == null || _teams == null || _matchManager == null)
             {
                 Logger.Error("JoinTeam: No match manager or no player manager");
