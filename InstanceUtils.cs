@@ -181,6 +181,11 @@ namespace PLGPlugin
 
         private void InitMatchManager()
         {
+            if (Logger == null)
+            {
+                throw new InvalidOperationException("Logger must be initialized before initializing the match manager.");
+            }
+
             if (_database != null && _playerManager != null && _backup != null)
             {
                 try

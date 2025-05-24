@@ -2,7 +2,6 @@ using CounterStrikeSharp.API;
 using PLGPlugin.Interfaces;
 using CounterStrikeSharp.API.Modules.Cvars;
 using CounterStrikeSharp.API.Modules.Utils;
-using Microsoft.Extensions.Logging;
 
 namespace PLGPlugin
 {
@@ -57,7 +56,7 @@ namespace PLGPlugin
             PlgConfig config,
             BackupManager backup,
             ITeamManager teamManager,
-            ILoggingService logger,
+            ILoggingService logger
         )
         {
             // ---------------
@@ -68,6 +67,8 @@ namespace PLGPlugin
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _config = config ?? throw new ArgumentNullException(nameof(config));
             _backup = backup ?? throw new ArgumentNullException(nameof(backup));
+            _pathConfig = config.CfgFolder;
+
 
             _logger.Info("MatchManager created");
 
@@ -96,7 +97,7 @@ namespace PLGPlugin
             throw new ObjectDisposedException(nameof(MatchManager));
         }
 
-        void IDisposable.Dispose()
+        public void Dispose()
         {
             if (!_disposed)
             {
@@ -158,9 +159,7 @@ namespace PLGPlugin
                 PLGPlugin.Instance.Logger?.Error("TeamManager is null");
                 return;
             }
-            DateTime date = DateTime.Now;
             string map = Server.MapName;
-            string dateFormatted = date.ToString("dd/MM/yyyy");
             TeamPLG? T = _teamManager.GetTeamBySide(CsTeam.Terrorist);
             TeamPLG? CT = _teamManager.GetTeamBySide(CsTeam.CounterTerrorist);
             if (T == null || CT == null)
@@ -177,16 +176,16 @@ namespace PLGPlugin
                 {
                     if (!Directory.Exists(directoryPath))
                     {
-                        Directory.CreateDirectory(directoryPath);
+                        _ = Directory.CreateDirectory(directoryPath);
                     }
                 }
                 string demoPath = "/demos/" + title;
-                _logger.LogInformation($"[StartDemoRecoding] Starting demo recording, path: {demoPath}");
+                _logger.Info($"[StartDemoRecoding] Starting demo recording, path: {demoPath}");
                 Server.ExecuteCommand($"tv_record {demoPath}");
             }
             catch (Exception ex)
             {
-                _logger.LogError($"[StartDemoRecording - FATAL] Error: {ex.Message}.");
+                _logger.Error($"[StartDemoRecording - FATAL] Error: {ex.Message}.");
             }
         }
 
@@ -261,7 +260,7 @@ namespace PLGPlugin
                 PLGPlugin.Instance.Logger?.Error("TeamManager is null");
                 return;
             }
-            CsTeam sideWinner = 0;
+            CsTeam sideWinner;
 
             (int tAlive, int tHealth) = GetAlivePlayers(2);
             (int ctAlive, int ctHealth) = GetAlivePlayers(3);
@@ -304,20 +303,20 @@ namespace PLGPlugin
             ConVar? hostnameValue = ConVar.Find("hostname");
             if (hostnameValue == null || hostnameValue.StringValue == null)
             {
-                _logger.LogError("EROR: hostname not found");
+                _logger.Error("EROR: hostname not found");
                 return;
             }
             if (_teamManager == null)
             {
-                _logger.LogError("EROR: teamManager not found");
+                _logger.Error("EROR: teamManager not found");
                 return;
             }
             if (_idTeam1 == null || _idTeam2 == null)
             {
-                _logger.LogError("EROR: idTeam1 or idTeam2 not found");
+                _logger.Error("EROR: idTeam1 or idTeam2 not found");
                 return;
             }
-            _logger.LogInformation($"Hostname: {hostnameValue.StringValue}");
+            _logger.Info($"Hostname: {hostnameValue.StringValue}");
 
             string hostname = hostnameValue.StringValue;
             string mapName = Server.MapName;
@@ -346,12 +345,6 @@ namespace PLGPlugin
             });
         }
 
-
-        public void BroadcastMessage(string message)
-        {
-            Server.PrintToChatAll($"{ChatPrefix} {message}");
-        }
-
         public void GoGoGo()
         {
 
@@ -362,7 +355,7 @@ namespace PLGPlugin
             }
             else
             {
-                _logger.LogError("EROR: state not waiting for side choice");
+                _logger.Error("EROR: state not waiting for side choice");
             }
         }
 
@@ -375,11 +368,11 @@ namespace PLGPlugin
                 TeamPLG? team2 = _teamManager.GetTeamById(_idTeam2.Value);
                 if (team1 == null || team2 == null)
                 {
-                    _logger.LogError("EROR: team not found");
+                    _logger.Error("EROR: team not found");
                     return;
                 }
                 await _database.UpdateMatchStats(_matchId, team1, team2);
-                await _database.UpdatePlayersStats(_playerManager, _matchId);
+                // await _database.UpdatePlayersStats(_playerManager, _matchId);
             }
         }
 
@@ -387,7 +380,7 @@ namespace PLGPlugin
         {
             string relativePath = Path.Join(_pathConfig + nameFile);
             string command = $"exec {relativePath}";
-            _logger.LogInformation($"Exec: {command}");
+            _logger.Info($"Exec: {command}");
             Server.ExecuteCommand(command);
         }
 

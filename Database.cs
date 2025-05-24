@@ -11,7 +11,7 @@ namespace PLGPlugin
         private readonly ILogger<Database> _logger;
         private readonly string _connectionString;
         private readonly MySQLConfig _config;
-        private bool _disposed = false;
+        private bool _disposed;
 
         public Database(MySQLConfig config)
         {
