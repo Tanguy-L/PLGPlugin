@@ -1,23 +1,35 @@
 using Dapper;
 using CounterStrikeSharp.API.Modules.Utils;
 using Microsoft.Extensions.Logging;
+using PLGPlugin.Interfaces;
 using MySqlConnector;
 
 namespace PLGPlugin
 {
-    public class Database
+    public class Database : IDatabase
     {
         private readonly ILogger<Database> _logger;
         private readonly string _connectionString;
         private readonly MySQLConfig _config;
+        private bool _disposed = false;
 
         public Database(MySQLConfig config)
         {
             var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
+            _config = config ?? throw new ArgumentNullException(nameof(config));
             _logger = loggerFactory.CreateLogger<Database>();
-            _config = config;
             _connectionString = BuildDatabaseConnectionString();
         }
+
+        public void Dispose()
+        {
+            if (!_disposed)
+            {
+                _logger?.LogInformation("Database service disposed");
+                _disposed = true;
+            }
+        }
+
 
         private string BuildDatabaseConnectionString()
         {
@@ -55,7 +67,7 @@ namespace PLGPlugin
                 return;
             }
 
-            foreach (var plgPlayer in playerManager.getAllPlayers())
+            foreach (var plgPlayer in playerManager.GetAllPlayers())
             {
                 string sqlQuery = $@"
                     INSERT INTO match_stats_players (

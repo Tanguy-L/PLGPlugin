@@ -1,11 +1,13 @@
 using CounterStrikeSharp.API;
+using PLGPlugin.Interfaces;
 using CounterStrikeSharp.API.Modules.Cvars;
 using CounterStrikeSharp.API.Modules.Utils;
 using Microsoft.Extensions.Logging;
 
 namespace PLGPlugin
 {
-    public class MatchManager
+    //TODO add ThrowIfDisposed in methods
+    public class MatchManager : IMatchManager
     {
         public enum MatchState
         {
@@ -18,54 +20,95 @@ namespace PLGPlugin
             Ended
         }
 
+        // ------------
+        // Interfaces
+        private readonly IDatabase _database;
+        private readonly IPlayerManager _playerManager;
+        private readonly ITeamManager _teamManager;
+        private readonly ILoggingService _logger;
+        private readonly PlgConfig _config;
+        private readonly BackupManager _backup;
+
         // duplicate keys from PLGPlugin instance
         // Because BroadcastMessage was not accessible
-        private static readonly string ChatPrefix =
-            $"[{ChatColors.Blue}P{ChatColors.Yellow}L{ChatColors.Red}G{ChatColors.Default}]";
-        private static readonly string AdminChatPrefix =
-            $"[{ChatColors.Red}ADMIN{ChatColors.Default}]";
-        private readonly PlayerManager _playerManager;
-        private readonly Database _database;
-        private readonly string _webhook;
-        private readonly ILogger<MatchManager> _logger;
-        private readonly BackupManager _backup;
+        // private static readonly string ChatPrefix =
+        //     $"[{ChatColors.Blue}P{ChatColors.Yellow}L{ChatColors.Red}G{ChatColors.Default}]";
+        // private static readonly string AdminChatPrefix =
+        //     $"[{ChatColors.Red}ADMIN{ChatColors.Default}]";
+
+        public MatchState State { get; set; }
+        private List<bool>? _teamsReady;
         private readonly string _pathConfig;
+
         private string? _mapName;
         private string? _matchId;
+
         private int? _teamWinner;
         private int? _knifeWinner;
         private int? _idTeam1;
         private int? _idTeam2;
-        private TeamManager? _teamManager;
+        private bool _disposed;
+        // private TeamManager? _teamManager;
         // 0 = Terrorist and 1 = CT
-        private List<bool>? _teamsReady;
-        public MatchState state { get; set; }
 
-        public MatchManager(Database database, PlayerManager playerManager, PlgConfig config, BackupManager backup, TeamManager teamManager)
+        public MatchManager(
+            IDatabase database,
+            IPlayerManager playerManager,
+            PlgConfig config,
+            BackupManager backup,
+            ITeamManager teamManager,
+            ILoggingService logger,
+        )
         {
+            // ---------------
+            // INIT DEPENDENCY INJECTIONS
+            _database = database ?? throw new ArgumentNullException(nameof(database));
+            _playerManager = playerManager ?? throw new ArgumentNullException(nameof(playerManager));
+            _teamManager = teamManager ?? throw new ArgumentNullException(nameof(teamManager));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _config = config ?? throw new ArgumentNullException(nameof(config));
+            _backup = backup ?? throw new ArgumentNullException(nameof(backup));
 
-            var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
-            _logger = loggerFactory.CreateLogger<MatchManager>();
+            _logger.Info("MatchManager created");
 
-            _logger.LogInformation("MatchManager created");
-            if (_teamManager != null)
+            InitializeTeamIds();
+            State = MatchState.Setup;
+        }
+
+        private void InitializeTeamIds()
+        {
+            _idTeam1 = _teamManager.GetTeamByIndex(0)?.Id;
+            _idTeam2 = _teamManager.GetTeamByIndex(1)?.Id;
+
+            if (_idTeam1.HasValue && _idTeam2.HasValue)
             {
-                _idTeam1 = teamManager?.GetTeamByIndex(0)?.Id;
-                _idTeam2 = teamManager?.GetTeamByIndex(1)?.Id;
-                _logger.LogInformation("team Handled !");
+                _logger.Info($"Teams initialized: Team1 ID={_idTeam1}, Team2 ID={_idTeam2}");
             }
-            _teamManager = teamManager;
-            _pathConfig = config.CfgFolder;
-            _playerManager = playerManager;
-            _database = database;
-            _webhook = config.DiscordWebhook;
-            _backup = backup;
-            state = MatchState.None;
+        }
+
+        private void ThrowIfDisposed()
+        {
+            if (!_disposed)
+            {
+                return;
+            }
+
+            throw new ObjectDisposedException(nameof(MatchManager));
+        }
+
+        void IDisposable.Dispose()
+        {
+            if (!_disposed)
+            {
+                _teamsReady?.Clear();
+                _logger?.Info("MatchManager disposed");
+                _disposed = true;
+            }
         }
 
         public void InitSetupMatch(string hostname)
         {
-            state = MatchState.Setup;
+            State = MatchState.Setup;
             _teamsReady = [false, false];
             ExecWarmup();
         }
@@ -75,10 +118,10 @@ namespace PLGPlugin
             _teamWinner = id;
         }
 
-        public void End()
+        public void EndMatch()
         {
             Server.ExecuteCommand($"tv_stoprecord");
-            state = MatchManager.MatchState.Ended;
+            State = MatchState.Ended;
             // ExecWarmup();
         }
 
@@ -116,16 +159,16 @@ namespace PLGPlugin
                 return;
             }
             DateTime date = DateTime.Now;
-            var map = Server.MapName;
+            string map = Server.MapName;
             string dateFormatted = date.ToString("dd/MM/yyyy");
-            var T = _teamManager.GetTeamBySide(CsTeam.Terrorist);
-            var CT = _teamManager.GetTeamBySide(CsTeam.CounterTerrorist);
+            TeamPLG? T = _teamManager.GetTeamBySide(CsTeam.Terrorist);
+            TeamPLG? CT = _teamManager.GetTeamBySide(CsTeam.CounterTerrorist);
             if (T == null || CT == null)
             {
                 PLGPlugin.Instance.Logger?.Error("T or CT is null");
                 return;
             }
-            var title = _matchId + "_" + T.Name + "_" + CT.Name + "_" + map + ".dem";
+            string title = _matchId + "_" + T.Name + "_" + CT.Name + "_" + map + ".dem";
 
             try
             {
@@ -151,14 +194,18 @@ namespace PLGPlugin
         {
             int count = 0;
             int totalHealth = 0;
-            var allPlayers = Utilities.GetPlayers();
-            foreach (var player in allPlayers)
+            List<CounterStrikeSharp.API.Core.CCSPlayerController> allPlayers = Utilities.GetPlayers();
+            foreach (CounterStrikeSharp.API.Core.CCSPlayerController player in allPlayers)
             {
                 if (player.IsValid)
                 {
                     if (player.TeamNum == team)
                     {
-                        if (player.PlayerPawn.Value!.Health > 0) count++;
+                        if (player.PlayerPawn.Value!.Health > 0)
+                        {
+                            count++;
+                        }
+
                         totalHealth += player.PlayerPawn.Value!.Health;
                     }
 
@@ -176,24 +223,24 @@ namespace PLGPlugin
                 return;
             }
 
-            var players = Utilities.GetPlayers();
+            List<CounterStrikeSharp.API.Core.CCSPlayerController> players = Utilities.GetPlayers();
 
-            foreach (var playerController in players)
+            foreach (CounterStrikeSharp.API.Core.CCSPlayerController playerController in players)
             {
-                var plgPlayer = _playerManager.GetPlayer(playerController.SteamID);
+                PlgPlayer? plgPlayer = _playerManager.GetPlayer(playerController.SteamID);
                 if (plgPlayer == null)
                 {
                     return;
                 }
-                var sideInDb = plgPlayer.Side;
-                var sideInGame = playerController.Team;
+                string? sideInDb = plgPlayer.Side;
+                CsTeam sideInGame = playerController.Team;
 
                 if (sideInDb == null)
                 {
                     return;
                 }
 
-                if (!Enum.TryParse<CsTeam>(sideInDb, out CsTeam sideInDbParsed))
+                if (!Enum.TryParse(sideInDb, out CsTeam sideInDbParsed))
                 {
                     Console.WriteLine($"Could not parse team value: {sideInDb}");
                     return;
@@ -226,27 +273,19 @@ namespace PLGPlugin
             {
                 sideWinner = CsTeam.Terrorist;
             }
-            else if (ctHealth > tHealth)
-            {
-                sideWinner = CsTeam.CounterTerrorist;
-            }
-            else if (tHealth > ctHealth)
-            {
-                sideWinner = CsTeam.Terrorist;
-            }
             else
             {
-                sideWinner = CsTeam.CounterTerrorist;
+                sideWinner = ctHealth > tHealth ? CsTeam.CounterTerrorist : tHealth > ctHealth ? CsTeam.Terrorist : CsTeam.CounterTerrorist;
             }
 
-            var winner = _teamManager.GetTeamBySide(sideWinner);
+            TeamPLG? winner = _teamManager.GetTeamBySide(sideWinner);
             if (winner == null)
             {
                 PLGPlugin.Instance.Logger?.Error("No knife winner");
                 return;
             }
             _knifeWinner = winner.Id;
-            state = MatchState.WaitingForSideChoice;
+            State = MatchState.WaitingForSideChoice;
             ExecWarmup();
         }
 
@@ -262,7 +301,7 @@ namespace PLGPlugin
 
         public async Task RunMatch()
         {
-            var hostnameValue = ConVar.Find("hostname");
+            ConVar? hostnameValue = ConVar.Find("hostname");
             if (hostnameValue == null || hostnameValue.StringValue == null)
             {
                 _logger.LogError("EROR: hostname not found");
@@ -280,20 +319,20 @@ namespace PLGPlugin
             }
             _logger.LogInformation($"Hostname: {hostnameValue.StringValue}");
 
-            var hostname = hostnameValue.StringValue;
-            var mapName = Server.MapName;
+            string hostname = hostnameValue.StringValue;
+            string mapName = Server.MapName;
 
             await Task.Run(async () =>
             {
 
                 _mapName = mapName;
-                var matchId = await _database.NewMatch(mapName, _idTeam1.Value, _idTeam2.Value);
+                string matchId = await _database.NewMatch(mapName, _idTeam1.Value, _idTeam2.Value);
                 _matchId = matchId;
                 Server.NextFrame(() =>
                 {
                     SetPlayersInTeams();
-                    var team1Name = _teamManager.GetTeamById(_idTeam1.Value)?.Name;
-                    var team2Name = _teamManager.GetTeamById(_idTeam2.Value)?.Name;
+                    string? team1Name = _teamManager.GetTeamById(_idTeam1.Value)?.Name;
+                    string? team2Name = _teamManager.GetTeamById(_idTeam2.Value)?.Name;
                     Server.ExecuteCommand($"mp_teamname_1 {team1Name}");
                     Server.ExecuteCommand($"mp_teamname_2 {team2Name}");
 
@@ -316,9 +355,9 @@ namespace PLGPlugin
         public void GoGoGo()
         {
 
-            if (state == MatchManager.MatchState.WaitingForSideChoice)
+            if (State == MatchState.WaitingForSideChoice)
             {
-                state = MatchManager.MatchState.Live;
+                State = MatchState.Live;
                 StartLive();
             }
             else
@@ -332,8 +371,8 @@ namespace PLGPlugin
         {
             if (_teamManager != null && _matchId != null && _teamManager != null && _idTeam1 != null && _idTeam2 != null)
             {
-                var team1 = _teamManager.GetTeamById(_idTeam1.Value);
-                var team2 = _teamManager.GetTeamById(_idTeam2.Value);
+                TeamPLG? team1 = _teamManager.GetTeamById(_idTeam1.Value);
+                TeamPLG? team2 = _teamManager.GetTeamById(_idTeam2.Value);
                 if (team1 == null || team2 == null)
                 {
                     _logger.LogError("EROR: team not found");
@@ -346,8 +385,8 @@ namespace PLGPlugin
 
         private void ExecCfg(string nameFile)
         {
-            var relativePath = Path.Join(_pathConfig + nameFile);
-            var command = $"exec {relativePath}";
+            string relativePath = Path.Join(_pathConfig + nameFile);
+            string command = $"exec {relativePath}";
             _logger.LogInformation($"Exec: {command}");
             Server.ExecuteCommand(command);
         }
@@ -359,7 +398,7 @@ namespace PLGPlugin
 
         private void StartKnife()
         {
-            state = MatchState.Knife;
+            State = MatchState.Knife;
 
             ExecCfg("knife.cfg");
         }

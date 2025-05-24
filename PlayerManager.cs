@@ -1,43 +1,70 @@
 using System.Collections.Concurrent;
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
+using PLGPlugin.Interfaces;
 
 namespace PLGPlugin
 {
-    public class PlayerManager
+    public class PlayerManager(Database database, ILoggingService Logger) : IPlayerManager
     {
         private readonly ConcurrentDictionary<ulong, PlgPlayer> _players = new();
-        private readonly Database _database;
+        private readonly Database _database = database ?? throw new ArgumentNullException(nameof(database));
+        private readonly ILoggingService _logger = Logger ?? throw new ArgumentNullException(nameof(Logger));
+        private bool _disposed;
 
-        public PlayerManager(Database database)
+        private void ThrowIfDisposed()
         {
-            _database = database;
+            if (!_disposed)
+            {
+                return;
+            }
+
+            throw new ObjectDisposedException(nameof(PlayerManager));
         }
 
-        public List<PlgPlayer> getAllPlayers()
+        public IEnumerable<PlgPlayer> GetAllPlayers()
         {
-            return _players.Values.ToList();
+            return _players.Values;
         }
 
-        public PlgPlayer? GetPlayer(ulong steamId) =>
-            _players.TryGetValue(steamId, out var player) ? player : null;
+        public PlgPlayer? GetPlayer(ulong steamId)
+        {
+            ThrowIfDisposed();
+            return _players.TryGetValue(steamId, out PlgPlayer? player) ? player : null;
+        }
 
-        public void AddOrUpdatePlayer(PlgPlayer player) =>
-            _players.AddOrUpdate(player.SteamID, player, (_, _) => player);
+        public void AddOrUpdatePlayer(PlgPlayer player)
+        {
+            ThrowIfDisposed();
+            _logger.Debug($"Adding or updating player: {player.SteamID} - {player.PlayerName}");
+            PlgPlayer plgPlayer = _players.AddOrUpdate(player.SteamID, player, (_, _) => player);
 
-        public void RemovePlayer(ulong steamId) => _players.TryRemove(steamId, out _);
+        }
 
-        public void ClearCache() => _players.Clear();
+        public void RemovePlayer(ulong steamId)
+        {
+            ThrowIfDisposed();
+            _ = _players.TryRemove(steamId, out _);
+        }
+
+        public void ClearCache()
+        {
+            ThrowIfDisposed();
+            _players.Clear();
+        }
 
         public void UpdatePlayerWithData(
             CCSPlayerController playerController,
             PlayerFromDB playerDB
         )
         {
+            ThrowIfDisposed();
             if (playerController == null)
+            {
                 return;
+            }
 
-            var playerPLG = new PlgPlayer(playerController);
+            PlgPlayer playerPLG = new(playerController);
             if (playerDB != null)
             {
                 playerPLG.Side = playerDB.Side;
@@ -56,11 +83,12 @@ namespace PLGPlugin
 
         public async Task AddPlgPlayer(CCSPlayerController playerController)
         {
+            ThrowIfDisposed();
             if (playerController != null)
             {
-                var playerPLG = new PlgPlayer(playerController);
-                var steamId = playerController.SteamID;
-                var playerInfosDB = await _database.GetPlayerById(steamId);
+                PlgPlayer playerPLG = new(playerController);
+                ulong steamId = playerController.SteamID;
+                PlayerFromDB? playerInfosDB = await _database.GetPlayerById(steamId);
 
                 if (playerInfosDB != null)
                 {
@@ -85,10 +113,32 @@ namespace PLGPlugin
 
         public async Task LoadCache()
         {
-            var allPlayers = Utilities.GetPlayers();
-            foreach (var player in allPlayers)
+            ThrowIfDisposed();
+            List<CCSPlayerController> allPlayers = Utilities.GetPlayers();
+            foreach (CCSPlayerController player in allPlayers)
             {
                 await AddPlgPlayer(player);
+            }
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                if (disposing)
+                {
+                    _players.Clear();
+
+                    // Note: We dons unloaded
+                }
+
+                _disposed = true;
             }
         }
     }

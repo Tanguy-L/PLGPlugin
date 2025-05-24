@@ -6,24 +6,30 @@ using Microsoft.Extensions.Logging;
 namespace PLGPlugin
 {
 
-    public class Sounds
+    public class Sounds : IDisposable
     {
-        public bool isPlaying = false;
-        public System.Timers.Timer soundBlockTimer = new();
-        public int duration = 0;
+        public bool isPlaying;
+        public System.Timers.Timer _soundBlockTimer = new();
+        public int duration;
         private readonly ILogger<Sounds>? _logger;
 
         public Sounds()
         {
-            var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
+            ILoggerFactory loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
             _logger = loggerFactory.CreateLogger<Sounds>();
-            soundBlockTimer.Elapsed += OnSoundTimerElapsed;
+            _soundBlockTimer.Elapsed += OnSoundTimerElapsed;
+        }
+
+        public void Dispose()
+        {
+            _soundBlockTimer?.Stop();
+            _soundBlockTimer?.Dispose(); // Properly clean up!
         }
 
         public void OnSoundTimerElapsed(object? sender, ElapsedEventArgs e)
         {
             isPlaying = false;
-            soundBlockTimer.Stop();
+            _soundBlockTimer.Stop();
         }
 
         public void PlayForAllPlayers(string sound, int duration = 3000)
@@ -42,13 +48,13 @@ namespace PLGPlugin
             Server.NextFrame(() =>
             {
                 isPlaying = true;
-                soundBlockTimer.Interval = duration;
-                soundBlockTimer.Start();
+                _soundBlockTimer.Interval = duration;
+                _soundBlockTimer.Start();
 
-                var players = Utilities.GetPlayers().Where(player => player != null && player.IsValid && player.IsBot == false && player.IsHLTV == false);
+                IEnumerable<CCSPlayerController> players = Utilities.GetPlayers().Where(player => player != null && player.IsValid && player.IsBot == false && player.IsHLTV == false);
 
 
-                foreach (var player in players)
+                foreach (CCSPlayerController player in players)
                 {
                     PlaySound(player, sound);
                 }

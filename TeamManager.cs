@@ -1,11 +1,13 @@
 using CounterStrikeSharp.API.Modules.Utils;
+using PLGPlugin.Interfaces;
 
 namespace PLGPlugin
 {
-    public class TeamManager
+    public class TeamManager : ITeamManager
     {
 
         private List<TeamPLG>? _teams;
+        private bool _disposed = false;
 
         public TeamManager()
         {
@@ -85,7 +87,7 @@ namespace PLGPlugin
             _teams.ForEach(t => t.Side = t.Side == CsTeam.CounterTerrorist ? CsTeam.Terrorist : CsTeam.CounterTerrorist);
         }
 
-        public bool isSomeTeamWithName(string nameTeam)
+        public bool IsSomeTeamWithName(string nameTeam)
         {
             if (_teams == null)
             {
@@ -103,7 +105,16 @@ namespace PLGPlugin
             }
 
             return this._teams.MaxBy(t => t.Score)?.Id;
+        }
 
+        public void Dispose()
+        {
+            if (!_disposed)
+            {
+                _teams?.Clear();
+                PLGPlugin.Instance.Logger?.Info("Team Manager Disposed");
+                _disposed = true;
+            }
         }
     }
 }

@@ -8,6 +8,11 @@ namespace PLGPlugin
 {
     public sealed partial class PLGPlugin : BasePlugin
     {
+        private static readonly string ChatPrefix =
+            $"[{ChatColors.Blue}P{ChatColors.Yellow}L{ChatColors.Red}G{ChatColors.Default}]";
+        private static readonly string AdminChatPrefix =
+            $"[{ChatColors.Red}ADMIN{ChatColors.Default}]";
+
         public async Task HandleUpdateSmoke(CCSPlayerController playerController, string commandArg)
         {
             if (_database == null || _playerManager == null)
@@ -17,11 +22,11 @@ namespace PLGPlugin
 
             try
             {
-                var steamId = playerController.SteamID;
+                ulong steamId = playerController.SteamID;
                 await Task.Run(async () =>
                 {
                     await _database.SetSmoke(steamId, commandArg);
-                    var playerData = await _database.GetPlayerById(steamId);
+                    PlayerFromDB? playerData = await _database.GetPlayerById(steamId);
                     await Server.NextFrameAsync(() =>
                     {
                         if (playerData != null)
@@ -37,10 +42,6 @@ namespace PLGPlugin
             }
         }
 
-        private static readonly string ChatPrefix =
-            $"[{ChatColors.Blue}P{ChatColors.Yellow}L{ChatColors.Red}G{ChatColors.Default}]";
-        private static readonly string AdminChatPrefix =
-            $"[{ChatColors.Red}ADMIN{ChatColors.Default}]";
 
         public void BroadcastMessage(string message)
         {
@@ -90,7 +91,7 @@ namespace PLGPlugin
 
         public void ExecCfg(string nameFile)
         {
-            var relativePath = Path.Join(Config.CfgFolder + nameFile);
+            string relativePath = Path.Join(Config.CfgFolder + nameFile);
             Server.ExecuteCommand($"exec {relativePath}");
         }
 
@@ -111,17 +112,17 @@ namespace PLGPlugin
 
         public void HandlePause(CCSPlayerController player, bool isPause = true)
         {
-            var pauseMessage = isPause ? "Paused by" : "Unpaused by";
+            string pauseMessage = isPause ? "Paused by" : "Unpaused by";
             if (_matchManager != null && _playerManager != null)
             {
-                var plgPlayer = _playerManager.GetPlayer(player.SteamID);
+                PlgPlayer? plgPlayer = _playerManager.GetPlayer(player.SteamID);
                 if (plgPlayer != null && plgPlayer.IsValid)
                 {
-                    var teamPlayer = plgPlayer.TeamName;
+                    string? teamPlayer = plgPlayer.TeamName;
                     BroadcastMessage($"{pauseMessage} {plgPlayer.PlayerName} in team {teamPlayer}");
 
                 }
-                _matchManager.state = isPause ? MatchManager.MatchState.Paused : MatchManager.MatchState.Live;
+                _matchManager.State = isPause ? MatchManager.MatchState.Paused : MatchManager.MatchState.Live;
             }
 
             if (isPause)
@@ -189,7 +190,7 @@ namespace PLGPlugin
 
                     if (Config.StartOnMatch && _teams != null)
                     {
-                        var hostnameValue = ConVar.Find("hostname")?.StringValue;
+                        string? hostnameValue = ConVar.Find("hostname")?.StringValue;
                         if (string.IsNullOrEmpty(hostnameValue))
                         {
                             Logger?.Warning("Cannot initialize match: hostname is null or empty");
@@ -201,7 +202,7 @@ namespace PLGPlugin
                         {
                             try
                             {
-                                var teams = await _database.GetTeamsByHostname(hostnameValue);
+                                List<TeamPLG> teams = await _database.GetTeamsByHostname(hostnameValue);
 
                                 // Validate teams data
                                 if (teams == null || teams.Count < 2)
@@ -219,7 +220,7 @@ namespace PLGPlugin
                                         _teams.AddTeam(teams[0]);
                                         _teams.AddTeam(teams[1]);
 
-                                        _matchManager = new MatchManager(_database, _playerManager, Config, _backup, _teams);
+                                        _matchManager = new MatchManager(_database, _playerManager, Config, _backup, _teams, Logger);
                                         // Initialize the match
                                         _matchManager.InitSetupMatch(hostnameValue);
                                         Logger?.Info($"Match initialized successfully for {hostnameValue}");
@@ -256,7 +257,9 @@ namespace PLGPlugin
         private void SendAvailableCommandsMessage(CCSPlayerController? player)
         {
             if (player == null)
+            {
                 return;
+            }
 
             if (CanYouDoThat(player, "@css/generic"))
             {

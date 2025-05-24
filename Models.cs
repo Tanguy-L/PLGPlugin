@@ -11,9 +11,9 @@ public class TeamPLG
     public CsTeam Side { get; set; }
     public required int Id { get; set; }
     public required List<string> Players { get; set; }
-    public int Score { get; set; } = 0;
-    public bool Ready { get; set; } = false;
-    public bool HasPaused { get; set; } = false;
+    public int Score { get; set; }
+    public bool Ready { get; set; }
+    public bool HasPaused { get; set; }
 }
 
 #region Player Models
@@ -41,8 +41,7 @@ public class PlgPlayer
         IsReady = false;
 
         IsValid =
-            controller.IsValid == true
-            && controller.PlayerPawn?.IsValid == true
+            controller.IsValid && controller.PlayerPawn?.IsValid == true
             && controller.Connected == PlayerConnectedState.PlayerConnected;
 
         IsPlayer = !controller.IsBot && !controller.IsHLTV;
@@ -119,14 +118,9 @@ public static class SmokeColorPalette
 
     public static Color GetColorByKey(string key)
     {
-        if (Colors.TryGetValue(key, out var color))
-        {
-            return color;
-        }
-        else
-        {
-            throw new KeyNotFoundException($"Color key '{key}' not found in SmokeColorPalette.");
-        }
+        return Colors.TryGetValue(key, out Color? color)
+            ? color
+            : throw new KeyNotFoundException($"Color key '{key}' not found in SmokeColorPalette.");
     }
 }
 #endregion

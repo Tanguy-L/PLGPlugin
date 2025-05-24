@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Modules.Utils;
 using CounterStrikeSharp.API.Core;
+using PLGPlugin.Interfaces;
 
 namespace PLGPlugin
 {
@@ -14,7 +15,7 @@ namespace PLGPlugin
         Critical
     }
 
-    public class LoggingService
+    public class LoggingService : ILoggingService
     {
         private readonly ILogger _logger;
         private readonly bool _printToConsole;
@@ -53,17 +54,7 @@ namespace PLGPlugin
         }
 
         // Access the singleton
-        public static LoggingService Instance
-        {
-            get
-            {
-                if (_instance == null)
-                {
-                    throw new InvalidOperationException("LoggingService must be initialized before use");
-                }
-                return _instance;
-            }
-        }
+        public static LoggingService Instance => _instance ?? throw new InvalidOperationException("LoggingService must be initialized before use");
 
         public void Log(string message, LogLevel level = LogLevel.Info)
         {
@@ -87,6 +78,8 @@ namespace PLGPlugin
                 case LogLevel.Critical:
                     _logger.LogCritical(prefixedMessage);
                     break;
+                default:
+                    break;
             }
 
             // Print to console
@@ -102,11 +95,30 @@ namespace PLGPlugin
             }
         }
 
-        public void Debug(string message) => Log(message, LogLevel.Debug);
-        public void Info(string message) => Log(message, LogLevel.Info);
-        public void Warning(string message) => Log(message, LogLevel.Warning);
-        public void Error(string message) => Log(message, LogLevel.Error);
-        public void Critical(string message) => Log(message, LogLevel.Critical);
+        public void Debug(string message)
+        {
+            Log(message, LogLevel.Debug);
+        }
+
+        public void Info(string message)
+        {
+            Log(message, LogLevel.Info);
+        }
+
+        public void Warning(string message)
+        {
+            Log(message, LogLevel.Warning);
+        }
+
+        public void Error(string message)
+        {
+            Log(message, LogLevel.Error);
+        }
+
+        public void Critical(string message)
+        {
+            Log(message, LogLevel.Critical);
+        }
 
         // Chat-specific methods
         public void ChatToAll(string message)

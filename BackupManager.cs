@@ -13,14 +13,14 @@ namespace PLGPlugin
         // Invert index
         public string GetFilenameByIndex(int index)
         {
-            var length = _lastFiles.Count - 1;
-            var indexFile = length - index;
+            int length = _lastFiles.Count - 1;
+            int indexFile = length - index;
             return _lastFiles[indexFile];
         }
 
         public void AddBackupFilename(string date, string map)
         {
-            var length = _lastFiles.Count;
+            int length = _lastFiles.Count;
             _lastFiles.Add(FormatFilename(date, map));
         }
     }
