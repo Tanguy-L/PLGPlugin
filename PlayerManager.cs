@@ -37,7 +37,6 @@ namespace PLGPlugin
         public void AddOrUpdatePlayer(PlgPlayer player)
         {
             ThrowIfDisposed();
-            Console.WriteLine($"Adding or updating player: {player.SteamID} - {player.PlayerName}");
             PlgPlayer plgPlayer = _players.AddOrUpdate(player.SteamID, player, (_, _) => player);
 
         }
@@ -82,43 +81,13 @@ namespace PLGPlugin
             AddOrUpdatePlayer(playerPLG);
         }
 
-        public async Task AddPlgPlayer(CCSPlayerController playerController)
-        {
-            // ThrowIfDisposed();
-            if (playerController != null)
-            {
-                PlgPlayer playerPLG = new(playerController);
-                ulong steamId = playerController.SteamID;
-                PlayerFromDB? playerInfosDB = await _database.GetPlayerById(steamId);
-
-                if (playerInfosDB != null)
-                {
-                    playerPLG.Side = playerInfosDB.Side;
-                    playerPLG.TeamName = playerInfosDB.TeamName;
-                    playerPLG.SmokeColor = playerInfosDB.SmokeColor;
-                    playerPLG.DiscordId = playerInfosDB.DiscordId;
-                    playerPLG.TeamChannelId = playerInfosDB.TeamChannelId;
-                    playerPLG.MemberId = playerInfosDB.MemberId;
-                    if (playerInfosDB.Weight != null)
-                    {
-                        playerPLG.Weight = playerInfosDB.Weight.ToString();
-                    }
-                }
-                else
-                {
-                    await _database.CreatePlayerInDB(playerPLG);
-                }
-                AddOrUpdatePlayer(playerPLG);
-            }
-        }
-
         public async Task LoadCache()
         {
             ThrowIfDisposed();
             List<CCSPlayerController> allPlayers = Utilities.GetPlayers();
             foreach (CCSPlayerController player in allPlayers)
             {
-                await AddPlgPlayer(player);
+                // await AddPlgPlayer(player);
             }
         }
 

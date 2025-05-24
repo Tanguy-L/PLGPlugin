@@ -22,7 +22,7 @@ namespace PLGPlugin.Interfaces
         void AddOrUpdatePlayer(PlgPlayer player);
         void RemovePlayer(ulong steamId);
         void ClearCache();
-        Task AddPlgPlayer(CCSPlayerController playerController);
+        // Task AddPlgPlayer(CCSPlayerController playerController);
         void UpdatePlayerWithData(CCSPlayerController playerController, PlayerFromDB playerDB);
     }
 

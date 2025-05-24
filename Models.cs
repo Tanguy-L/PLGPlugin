@@ -17,12 +17,12 @@ namespace PLGPlugin
     }
 
     #region Player Models
-    public class PlgPlayer
+    public class PlgPlayer(CCSPlayerController controller)
     {
-        public ulong SteamID { get; }
+        public ulong SteamID { get; } = controller.SteamID;
         public string? MemberId { get; set; }
         public string? Side { get; set; }
-        public string PlayerName { get; }
+        public string PlayerName { get; } = controller.PlayerName;
         public string? DiscordId { get; set; }
         public bool IsLoggedIn { get; set; }
         public string? Weight { get; set; }
@@ -31,21 +31,10 @@ namespace PLGPlugin
         public string? TeamChannelId { get; set; }
         public Dictionary<string, object>? Stats { get; set; }
         public bool IsReady { get; set; }
-        public bool IsValid { get; set; }
-        public bool IsPlayer { get; set; }
-
-        public PlgPlayer(CCSPlayerController controller)
-        {
-            SteamID = controller.SteamID;
-            PlayerName = controller.PlayerName;
-            IsReady = false;
-
-            IsValid =
+        public bool IsValid { get; set; } =
                 controller.IsValid && controller.PlayerPawn?.IsValid == true
                 && controller.Connected == PlayerConnectedState.PlayerConnected;
-
-            IsPlayer = !controller.IsBot && !controller.IsHLTV;
-        }
+        public bool IsPlayer { get; set; } = !controller.IsBot && !controller.IsHLTV;
     }
 
     public class PlayerFromDB

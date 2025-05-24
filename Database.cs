@@ -15,7 +15,7 @@ namespace PLGPlugin
 
         public Database(MySQLConfig config)
         {
-            var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
+            ILoggerFactory loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
             _config = config ?? throw new ArgumentNullException(nameof(config));
             _logger = loggerFactory.CreateLogger<Database>();
             _connectionString = BuildDatabaseConnectionString();
@@ -67,7 +67,7 @@ namespace PLGPlugin
                 return;
             }
 
-            foreach (var plgPlayer in playerManager.GetAllPlayers())
+            foreach (PlgPlayer plgPlayer in playerManager.GetAllPlayers())
             {
                 string sqlQuery = $@"
                     INSERT INTO match_stats_players (
@@ -107,9 +107,9 @@ namespace PLGPlugin
                     _logger.LogWarning($"No stats found for player {plgPlayer.MemberId}");
                     return;
                 }
-                var memberId = plgPlayer.MemberId;
+                string? memberId = plgPlayer.MemberId;
 
-                await connection.ExecuteAsync(sqlQuery,
+                _ = await connection.ExecuteAsync(sqlQuery,
                 new
                 {
                     matchId,
@@ -156,7 +156,7 @@ namespace PLGPlugin
         {
             try
             {
-                await using var connection = new MySqlConnection(_connectionString);
+                await using MySqlConnection connection = new MySqlConnection(_connectionString);
                 string query = @"
                     SELECT 
                         t.team_id as Id,
@@ -173,8 +173,8 @@ namespace PLGPlugin
                         t.hostname = @hostname;
                 ";
                 var parameters = new { hostname };
-                var rows = await connection.QueryAsync<(int Id, string Name, CsTeam Side, string Players)>(query, parameters);
-                var groupedTeams = rows
+                IEnumerable<(int Id, string Name, CsTeam Side, string Players)> rows = await connection.QueryAsync<(int Id, string Name, CsTeam Side, string Players)>(query, parameters);
+                List<TeamPLG> groupedTeams = rows
                     .GroupBy(row => new { row.Name, row.Side, row.Id })
                     .Select(group => new TeamPLG
                     {
@@ -188,7 +188,7 @@ namespace PLGPlugin
                     }).ToList();
                 return groupedTeams;
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 _logger.LogError(ex, "Error while getting teams by Hostname");
                 throw;
@@ -260,9 +260,9 @@ namespace PLGPlugin
                     team1 = teamId1,
                     team2 = teamId2
                 };
-                var matchId = await connection.ExecuteScalarAsync(query, parameters);
+                object? matchId = await connection.ExecuteScalarAsync(query, parameters);
                 _logger.LogInformation("Match id: " + matchId);
-                var matchIdString = matchId?.ToString();
+                string? matchIdString = matchId?.ToString();
                 if (string.IsNullOrWhiteSpace(matchIdString))
                 {
                     throw new Exception("Insertion of match failed");
@@ -280,7 +280,7 @@ namespace PLGPlugin
         {
             try
             {
-                var connection = new MySqlConnection(_connectionString);
+                MySqlConnection connection = new(_connectionString);
                 await connection.OpenAsync();
                 return connection;
             }
@@ -295,11 +295,11 @@ namespace PLGPlugin
         {
             try
             {
-                await using var connection = await GetOpenConnectionAsync();
+                await using MySqlConnection connection = await GetOpenConnectionAsync();
 
                 string query =
                     $@"UPDATE members SET smoke_color = '{color}' WHERE steam_id = {steamId}";
-                await connection.ExecuteAsync(query);
+                _ = await connection.ExecuteAsync(query);
             }
             catch (Exception ex)
             {
@@ -311,11 +311,11 @@ namespace PLGPlugin
         {
             try
             {
-                await using var connection = await GetOpenConnectionAsync();
+                await using MySqlConnection connection = await GetOpenConnectionAsync();
 
                 string query =
                     $@"UPDATE team_members SET team_id = '{idTeam}' WHERE member_id = {memberId}";
-                await connection.ExecuteAsync(query);
+                _ = await connection.ExecuteAsync(query);
             }
             catch (Exception ex)
             {
@@ -334,7 +334,7 @@ namespace PLGPlugin
                              SELECT LAST_INSERT_ID();";
                 var parameters = new
                 {
-                    SteamID = player.SteamID,
+                    player.SteamID,
                     Weight = 6, // Default weight, adjust as needed
                     IsLoggedIn = false,
                     SmokeColor = "red",
@@ -375,7 +375,7 @@ namespace PLGPlugin
                  WHERE
                      m.steam_id = @SteamID
                  ;";
-                var parameters = new { SteamId = steamId.ToString() };
+                var parameters = new { steamId };
                 PlayerFromDB? playerDB = await connection.QueryFirstOrDefaultAsync<PlayerFromDB>(
                     query,
                     parameters

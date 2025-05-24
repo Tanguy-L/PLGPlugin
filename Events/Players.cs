@@ -36,61 +36,59 @@ namespace PLGPlugin
                 return HookResult.Continue;
             }
 
+            if (_database == null)
+            {
+                Logger.Error("PlayerManager is null in OnPlayerConnectFull");
+                return HookResult.Continue;
+            }
+
             Logger.Info($"Player {playerId.PlayerName} (ID: {playerId.SteamID}) connected in OnPlayerConnectFull");
+
+            ulong steamId = playerId.SteamID;
 
             _ = Task.Run(async () =>
             {
-                await _playerManager.AddPlgPlayer(playerId);
-            });
+                PlayerFromDB? playerDB;
+                try
+                {
+                    playerDB = await _database.GetPlayerById(steamId);
+                    Console.WriteLine($"Player data retrieved for ${playerDB?.DiscordName}");
+                }
+                catch (Exception)
+                {
+                    throw;
+                }
 
-            // Background player processing with detailed logging
-            // _ = Task.Run(async () =>
-            // {
-            //     try
-            //     {
-            //         await _playerManager.AddPlgPlayer(playerId);
-            //
-            //         // Verify the player was actually added
-            //         PlgPlayer? addedPlayer = _playerManager.GetPlayer(playerId.SteamID);
-            //     }
-            //     catch (Exception ex)
-            //     {
-            //         Console.WriteLine($"Error adding player {playerId.SteamID} to PLG: {ex.Message}");
-            //     }
-            // });
+                if (playerDB != null)
+                {
+                    Server.NextFrame(() =>
+                    {
+
+                        PlgPlayer playerPLG = new(playerId)
+                        {
+                            Side = playerDB.Side,
+                            TeamName = playerDB.TeamName,
+                            SmokeColor = playerDB.SmokeColor,
+                            DiscordId = playerDB.DiscordId,
+                            TeamChannelId = playerDB.TeamChannelId,
+                            MemberId = playerDB.MemberId
+                        };
+                        if (playerDB.Weight != null)
+                        {
+                            playerPLG.Weight = playerDB.Weight.ToString();
+                        }
+                        _playerManager.UpdatePlayerWithData(playerId, playerDB);
+                        Console.WriteLine($"Player data retrieved for {steamId}: {playerPLG.PlayerName}");
+                        ReplyToUserCommand(playerId, $"Bienvenue dans le serveur PLG, {playerPLG.PlayerName} !");
+                        ReplyToUserCommand(playerId, "Tapez .help pour voir la liste des commandes");
+                        //TODO Check if the sound is hello or bangbang
+                        _sounds?.PlaySound(playerId, "sounds/plg_sounds/hello.vsnd");
+                    });
+                }
+            });
 
             return HookResult.Continue;
         }
-        // public HookResult OnPlayerConnectFull(EventPlayerConnectFull @event, GameEventInfo info)
-        // {
-        //     if (Logger == null)
-        //     {
-        //         return HookResult.Continue;
-        //     }
-        //     CCSPlayerController? playerId = @event.Userid;
-        //     if (playerId != null && _playerManager != null && playerId.IsValid)
-        //     {
-        //         _ = Task.Run(async () =>
-        //         {
-        //             try
-        //             {
-        //                 await _playerManager.AddPlgPlayer(playerId);
-        //             }
-        //             catch (Exception ex)
-        //             {
-        //                 Logger.Error($"Error adding player {playerId.SteamID} to PLG: {ex.Message}");
-        //             }
-        //         });
-        //         Server.NextFrame(() =>
-        //         {
-        //             ReplyToUserCommand(playerId, "Bienvenue dans le serveur PLG !");
-        //             ReplyToUserCommand(playerId, "Tapez .help pour voir la liste des commandes");
-        //             //TODO Check if the sound is hello or bangbang
-        //             _sounds?.PlaySound(playerId, "sounds/plg_sounds/hello.vsnd");
-        //         });
-        //     }
-        //     return HookResult.Continue;
-        // }
 
         public HookResult OnPlayerDisconnect(EventPlayerDisconnect @event, GameEventInfo info)
         {

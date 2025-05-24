@@ -18,7 +18,7 @@ namespace PLGPlugin
                 {
                     Server.NextFrame(async () =>
                     {
-                        await _playerManager.AddPlgPlayer(playerController);
+                        // await _playerManager.AddPlgPlayer(playerController);
                     });
                 }
             }

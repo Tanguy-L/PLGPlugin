@@ -88,7 +88,7 @@ namespace PLGPlugin
             // LOAD LOGGER 
             ILoggerFactory loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
             ILogger<PLGPlugin> coreLogger = loggerFactory.CreateLogger<PLGPlugin>();
-            LoggingService.Initialize(coreLogger, printToConsole: true, printToChat: false, printToServer: false);
+            LoggingService.Initialize(coreLogger, printToConsole: false, printToChat: false, printToServer: true);
             Logger = LoggingService.Instance;
 
             if (Logger == null)
