@@ -323,7 +323,7 @@ namespace PLGPlugin
             }
         }
 
-        public async Task CreatePlayerInDB(PlgPlayer player)
+        public async Task CreatePlayerInDB(string name, ulong steamID)
         {
             try
             {
@@ -334,17 +334,17 @@ namespace PLGPlugin
                              SELECT LAST_INSERT_ID();";
                 var parameters = new
                 {
-                    player.SteamID,
+                    steamID,
                     Weight = 6, // Default weight, adjust as needed
                     IsLoggedIn = false,
                     SmokeColor = "red",
-                    DiscordName = player.PlayerName ?? "test",
+                    DiscordName = name ?? "test",
                 };
                 _ = await connection.ExecuteAsync(query, parameters);
             }
             catch (System.Exception)
             {
-                Console.WriteLine($"Error creating player in DB: {player.SteamID}");
+                Console.WriteLine($"Error creating player in DB: {steamID} -- {name}");
                 throw;
             }
         }
@@ -365,7 +365,8 @@ namespace PLGPlugin
                      m.smoke_color SmokeColor,
                      t.name TeamName,
                      t.side Side,
-                     t.channel_id TeamChannelId
+                     t.channel_id TeamChannelId,
+                    t.hostname TeamHostname
                  FROM
                      plg.members m
                  LEFT JOIN

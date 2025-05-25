@@ -45,6 +45,17 @@ namespace PLGPlugin
             return _teams[index];
         }
 
+        public TeamPLG? GetTeamByName(string name)
+        {
+            if (_teams == null)
+            {
+                PLGPlugin.Instance.Logger?.Error("Teams is null");
+                return null;
+            }
+            var result = _teams.FirstOrDefault(t => t.Name == name);
+            return result;
+        }
+
         public TeamPLG? GetTeamById(int id)
         {
             if (_teams == null)

@@ -6,7 +6,6 @@ namespace PLGPlugin
 {
     public sealed partial class PLGPlugin
     {
-        // Enhanced OnPlayerConnectFull with detailed logging
         public HookResult OnPlayerConnectFull(EventPlayerConnectFull @event, GameEventInfo info)
         {
             if (Logger == null)
@@ -17,7 +16,6 @@ namespace PLGPlugin
 
             CCSPlayerController? playerId = @event.Userid;
 
-            // Enhanced validation with logging
             if (playerId == null)
             {
                 Logger.Warning("Player ID is null in OnPlayerConnectFull");
@@ -32,60 +30,86 @@ namespace PLGPlugin
 
             if (_playerManager == null)
             {
-                Logger.Error("PlayerManager is null in OnPlayerConnectFull");
+                Logger.Warning("PlayerManager is null in OnPlayerConnectFull");
                 return HookResult.Continue;
             }
 
             if (_database == null)
             {
-                Logger.Error("PlayerManager is null in OnPlayerConnectFull");
+                Logger.Warning("DB is null in OnPlayerConnectFull");
+                ReplyToUserCommand(playerId, $"Bienvenue dans le serveur PLG !");
+                ReplyToUserCommand(playerId, "Tapez .help pour voir la liste des commandes");
                 return HookResult.Continue;
             }
-
-            Logger.Info($"Player {playerId.PlayerName} (ID: {playerId.SteamID}) connected in OnPlayerConnectFull");
 
             ulong steamId = playerId.SteamID;
 
             _ = Task.Run(async () =>
             {
                 PlayerFromDB? playerDB;
+
                 try
                 {
                     playerDB = await _database.GetPlayerById(steamId);
-                    Console.WriteLine($"Player data retrieved for ${playerDB?.DiscordName}");
-                }
-                catch (Exception)
-                {
-                    throw;
-                }
 
-                if (playerDB != null)
-                {
+                    // ---------------------
+                    // GET OR CREATE PLAYER IN DB
+                    if (playerDB == null)
+                    {
+                        await _database.CreatePlayerInDB(playerId.PlayerName, playerId.SteamID);
+                        playerDB = await _database.GetPlayerById(steamId);
+                        Console.WriteLine($"PLG: Create player in DB");
+                    }
+
+                    if (playerDB == null)
+                    {
+                        Console.WriteLine("PLG : No player on connection");
+                        return;
+                    }
+
                     Server.NextFrame(() =>
                     {
-
-                        PlgPlayer playerPLG = new(playerId)
-                        {
-                            Side = playerDB.Side,
-                            TeamName = playerDB.TeamName,
-                            SmokeColor = playerDB.SmokeColor,
-                            DiscordId = playerDB.DiscordId,
-                            TeamChannelId = playerDB.TeamChannelId,
-                            MemberId = playerDB.MemberId
-                        };
-                        if (playerDB.Weight != null)
-                        {
-                            playerPLG.Weight = playerDB.Weight.ToString();
-                        }
                         _playerManager.UpdatePlayerWithData(playerId, playerDB);
-                        Console.WriteLine($"Player data retrieved for {steamId}: {playerPLG.PlayerName}");
-                        ReplyToUserCommand(playerId, $"Bienvenue dans le serveur PLG, {playerPLG.PlayerName} !");
-                        ReplyToUserCommand(playerId, "Tapez .help pour voir la liste des commandes");
+                        var playerPLG = _playerManager.GetPlayer(playerId.SteamID);
+
                         //TODO Check if the sound is hello or bangbang
                         _sounds?.PlaySound(playerId, "sounds/plg_sounds/hello.vsnd");
+
+                        // --------------------
+                        // HANDLE PLAYER WITH MATCH MANAGER
+                        if (_teams != null && playerPLG != null && _matchManager != null)
+                        {
+                            string? teamName = playerPLG.TeamName;
+                            if (teamName == null)
+                            {
+                                return;
+                            }
+                            var team = _teams.GetTeamByName(teamName);
+                            if (team == null)
+                            {
+                                return;
+                            }
+                            playerId.ChangeTeam(team.Side);
+                            if (_matchManager != null && _matchManager.State == MatchManager.MatchState.Setup)
+                            {
+                                Server.NextFrame(() =>
+                                {
+                                    playerId.Respawn();
+                                });
+                            }
+                        }
+
+                        ReplyToUserCommand(playerId, $"Bienvenue dans le serveur PLG {playerPLG?.PlayerName} !");
+                        ReplyToUserCommand(playerId, "Tapez .help pour voir la liste des commandes");
                     });
+                    Console.WriteLine($"Player data retrieved for ${playerDB?.DiscordName}");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"message : {ex}");
                 }
             });
+
 
             return HookResult.Continue;
         }

@@ -73,6 +73,7 @@ namespace PLGPlugin
                 playerPLG.DiscordId = playerDB.DiscordId;
                 playerPLG.TeamChannelId = playerDB.TeamChannelId;
                 playerPLG.MemberId = playerDB.MemberId;
+                playerPLG.TeamHostname = playerDB.TeamHostname;
                 if (playerDB.Weight != null)
                 {
                     playerPLG.Weight = playerDB.Weight.ToString();

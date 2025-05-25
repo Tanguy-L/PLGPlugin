@@ -28,6 +28,7 @@ namespace PLGPlugin
         public string? Weight { get; set; }
         public string? SmokeColor { get; set; }
         public string? TeamName { get; set; }
+        public string? TeamHostname { get; set; }
         public string? TeamChannelId { get; set; }
         public Dictionary<string, object>? Stats { get; set; }
         public bool IsReady { get; set; }
@@ -61,6 +62,9 @@ namespace PLGPlugin
 
         [Column("smoke_color")]
         public string? SmokeColor { get; set; }
+
+        [Column("team_hostname")]
+        public string? TeamHostname { get; set; }
 
         [Column("team_name")]
         public string? TeamName { get; set; }

@@ -58,7 +58,7 @@ namespace PLGPlugin
         public PlayerManager? _playerManager;
         public Database? _database;
         private BackupManager? _backup;
-        private MatchManager _matchManager;
+        private MatchManager? _matchManager;
         private Sounds? _sounds;
         private TeamManager? _teams;
         public new ILoggingService? Logger;
@@ -131,6 +131,7 @@ namespace PLGPlugin
             Dictionary<string, Action<CCSPlayerController?, CommandInfo?>> commandActions = new()
             {
                 { ".load", LoadPlayerCache },
+                { ".join", OnJoinTeam },
                 { ".match_status", GetMatchManagerStatus },
                 { ".list", ListPlayers },
                 { ".stop_tv", OnStopRecordTv },

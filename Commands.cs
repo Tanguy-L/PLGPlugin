@@ -11,16 +11,62 @@ namespace PLGPlugin
         [ConsoleCommand("css_load", "Reload the player current cache")]
         public void LoadPlayerCache(CCSPlayerController? player, CommandInfo? command)
         {
-            if (_playerManager != null)
+            if (_playerManager == null)
             {
-                _playerManager.ClearCache();
-                foreach (CCSPlayerController playerController in Utilities.GetPlayers())
+                Logger?.Error("player manager is not set");
+                return;
+            }
+            if (_database == null)
+            {
+                Logger?.Error("database is not set");
+                return;
+            }
+            _playerManager.ClearCache();
+
+
+            foreach (CCSPlayerController playerController in Utilities.GetPlayers())
+            {
+                if (playerController == null || !playerController.IsValid)
                 {
-                    Server.NextFrame(async () =>
-                    {
-                        // await _playerManager.AddPlgPlayer(playerController);
-                    });
+                    continue;
                 }
+                _ = Task.Run(async () =>
+                {
+                    PlayerFromDB? playerDB;
+                    try
+                    {
+                        playerDB = await _database.GetPlayerById(playerController.SteamID);
+                        Console.WriteLine($"Player data retrieved for ${playerDB?.DiscordName}");
+                    }
+                    catch (Exception)
+                    {
+                        throw;
+                    }
+
+                    if (playerDB != null)
+                    {
+                        Server.NextFrame(() =>
+                        {
+
+                            PlgPlayer playerPLG = new(playerController)
+                            {
+                                Side = playerDB.Side,
+                                TeamName = playerDB.TeamName,
+                                SmokeColor = playerDB.SmokeColor,
+                                DiscordId = playerDB.DiscordId,
+                                TeamChannelId = playerDB.TeamChannelId,
+                                MemberId = playerDB.MemberId
+                            };
+                            if (playerDB.Weight != null)
+                            {
+                                playerPLG.Weight = playerDB.Weight.ToString();
+                            }
+                            _playerManager.UpdatePlayerWithData(playerController, playerDB);
+                            Console.WriteLine($"Player data retrieved for {playerController.SteamID}: {playerPLG.PlayerName}");
+                        });
+                    }
+                });
+
             }
         }
 
@@ -76,15 +122,37 @@ namespace PLGPlugin
                 Logger?.Error("MatchManager or Teams is null");
                 return;
             }
-            CsTeam side = player.Team;
-            _matchManager.SetTeamReadyBySide(side, true);
+            if (_playerManager == null)
+            {
+                Logger?.Error("player manager is null");
+                return;
+            }
+
+            var plgPlayer = _playerManager.GetPlayer(player.SteamID);
+
+            var teamOfPlayer = plgPlayer?.TeamName;
+            if (teamOfPlayer == null)
+            {
+                Logger?.Error("the player has no team");
+                return;
+            }
+
+            var team = _teams.GetTeamByName(teamOfPlayer);
+
+            if (team == null)
+            {
+                Logger?.Error("the team of the player is not found");
+                ReplyToUserCommand(player, "Votre équipe n'a pas été trouvé, impossible de mettre ready");
+                return;
+            }
+
+            _matchManager.SetTeamReadyBySide(team.Side, true);
 
             if (Logger == null)
             {
                 return;
             }
 
-            TeamPLG? team = _teams.GetTeamBySide(side);
             string teamName = team != null ? team.Name : "Unknown";
             BroadcastMessage($"Team {teamName} ready by {player.PlayerName}");
 
@@ -321,7 +389,7 @@ namespace PLGPlugin
             }
         }
 
-        [ConsoleCommand("css_no_match", "Remove the match manager ! (set it to null)")]
+        [ConsoleCommand("css_match_off", "Remove the match manager ! (set it to null)")]
         public void MatchManagerOff(CCSPlayerController? player, CommandInfo? command)
         {
             if (player == null)

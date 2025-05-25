@@ -12,7 +12,7 @@ namespace PLGPlugin.Interfaces
         // Task UpdatePlayersStats(IPlayerManager playerManager, string matchId);
         Task SetSmoke(ulong steamId, string color);
         Task JoinTeam(string memberId, int? idTeam);
-        Task CreatePlayerInDB(PlgPlayer player);
+        Task CreatePlayerInDB(string name, ulong steamID);
     }
 
     public interface IPlayerManager : IDisposable

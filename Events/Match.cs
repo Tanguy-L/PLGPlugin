@@ -114,7 +114,8 @@ namespace PLGPlugin
                         if (team != null)
                         {
                             Logger.Info($"team: {team.Name}");
-                            ReplyToUserCommand(player, $"[OPTIONNEL] Tu n'es pas dans une equipe,{ChatColors.Green} .join pour rejoindre l'équipe {team.Name} {ChatColors.Default}");
+                            ReplyToUserCommand(player, $"[OPTIONNEL] Pas d'équipe sur ce serveur,{ChatColors.Green} .join pour rejoindre l'équipe {team.Name} {ChatColors.Default}");
+                            ReplyToUserCommand(player, $"Ton équipe {plgPlayer?.TeamName} est au serveur {plgPlayer?.TeamHostname}");
                         }
                     }
                 }
@@ -126,48 +127,50 @@ namespace PLGPlugin
 
         public HookResult OnMatchEnd(EventCsWinPanelMatch @event, GameEventInfo info)
         {
+            if (_matchManager == null || _playerManager == null || _teams == null)
+            {
+                return HookResult.Continue;
+            }
+            IEnumerable<CCSTeam> teams = Utilities.FindAllEntitiesByDesignerName<CCSTeam>("cs_team_manager");
             if (_matchManager != null && _playerManager != null && _teams != null)
             {
-                IEnumerable<CCSTeam> teams = Utilities.FindAllEntitiesByDesignerName<CCSTeam>("cs_team_manager");
-                if (_matchManager != null && _playerManager != null && _teams != null)
+                foreach (CCSTeam team in teams)
                 {
-                    foreach (CCSTeam team in teams)
+                    byte teamNumber = team.TeamNum;
+                    // 2 = T, 3 = CT, 1 = Spectator, 0 = Unassigned
+                    CsTeam side = teamNumber == 2 ? CsTeam.Terrorist : CsTeam.CounterTerrorist;
+                    TeamPLG? teamPLG = _teams.GetTeamBySide(side);
+                    if (teamPLG == null)
                     {
-                        byte teamNumber = team.TeamNum;
-                        // 2 = T, 3 = CT, 1 = Spectator, 0 = Unassigned
-                        CsTeam side = teamNumber == 2 ? CsTeam.Terrorist : CsTeam.CounterTerrorist;
-                        TeamPLG? teamPLG = _teams.GetTeamBySide(side);
-                        if (teamPLG == null)
-                        {
-                            Logger?.Error($"Team with side {side} not found");
-                            return HookResult.Continue;
-                        }
-                        teamPLG.Score = team.Score;
+                        Logger?.Error($"Team with side {side} not found");
+                        return HookResult.Continue;
                     }
+                    teamPLG.Score = team.Score;
                 }
+            }
 
-                int? bestTeam = _teams?.IdOfBestTeam();
+            int? bestTeam = _teams?.IdOfBestTeam();
 
 
-                if (bestTeam != null)
+            if (bestTeam != null)
+            {
+                _matchManager?.SetWinnerTeam(bestTeam.Value);
+            }
+
+            List<CCSPlayerController> allPlayers = Utilities.GetPlayers();
+            Dictionary<string, Dictionary<string, object>>? playersStatsOnly = [];
+
+            foreach (CCSPlayerController _player in allPlayers)
+            {
+                ulong id = _player.SteamID;
+                PlgPlayer? playerPlg = _playerManager?.GetPlayer(id);
+                if (playerPlg != null)
                 {
-                    _matchManager?.SetWinnerTeam(bestTeam.Value);
-                }
-
-                List<CCSPlayerController> allPlayers = Utilities.GetPlayers();
-                Dictionary<string, Dictionary<string, object>>? playersStatsOnly = [];
-
-                foreach (CCSPlayerController _player in allPlayers)
-                {
-                    ulong id = _player.SteamID;
-                    PlgPlayer? playerPlg = _playerManager?.GetPlayer(id);
-                    if (playerPlg != null)
+                    if (_player != null && _player.ActionTrackingServices != null)
                     {
-                        if (_player != null && _player.ActionTrackingServices != null)
-                        {
-                            CSMatchStats_t playerStats = _player.ActionTrackingServices.MatchStats;
+                        CSMatchStats_t playerStats = _player.ActionTrackingServices.MatchStats;
 
-                            Dictionary<string, object> stats = new()
+                        Dictionary<string, object> stats = new()
                             {
                                 { "PlayerName", _player.PlayerName },
                                 { "Kills", playerStats.Kills },
@@ -203,23 +206,22 @@ namespace PLGPlugin
                                 { "EnemiesFlashed", playerStats.EnemiesFlashed }
                             };
 
-                            if (playerPlg.MemberId != null)
-                            {
-                                playerPlg.Stats = stats;
-                                _playerManager.AddOrUpdatePlayer(playerPlg);
-                            }
+                        if (playerPlg.MemberId != null)
+                        {
+                            playerPlg.Stats = stats;
+                            _playerManager.AddOrUpdatePlayer(playerPlg);
                         }
                     }
                 }
-
-                _ = Task.Run(async () =>
-                {
-                    await _matchManager.UpdateStatsMatch();
-                });
-
-                _matchManager.EndMatch();
-
             }
+
+            _ = Task.Run(async () =>
+            {
+                await _matchManager.UpdateStatsMatch();
+            });
+
+            _matchManager.EndMatch();
+
             return HookResult.Continue;
         }
     }
