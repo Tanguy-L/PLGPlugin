@@ -48,8 +48,8 @@ namespace PLGPlugin
         [Column("id")]
         public string? MemberId { get; set; }
 
-        [Column("discord_name")]
-        public string? DiscordName { get; set; }
+        [Column("name")]
+        public string? Name { get; set; }
 
         [Column("steam_id")]
         public string? SteamId { get; set; }

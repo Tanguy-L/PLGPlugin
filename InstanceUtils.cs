@@ -66,7 +66,7 @@ namespace PLGPlugin
         // @css/cheats # Change sv_cheats or use cheating commands.
         // @css/root # Magically enables all flags and ignores immunity values.
         // ----------- FLAGS ----------------
-        public bool CanYouDoThat(CCSPlayerController player, string flag)
+        public bool CanYouDoThat(CCSPlayerController player, string flag = "@css/generic")
         {
             return AdminManager.PlayerHasPermissions(player, flag);
         }

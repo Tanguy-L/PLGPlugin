@@ -3,6 +3,7 @@ using CounterStrikeSharp.API.Modules.Utils;
 using Microsoft.Extensions.Logging;
 using PLGPlugin.Interfaces;
 using MySqlConnector;
+using CounterStrikeSharp.API;
 
 namespace PLGPlugin
 {
@@ -201,12 +202,13 @@ namespace PLGPlugin
             {
                 if (team1 == null || team2 == null)
                 {
-                    throw new Exception("Teams not found");
+                    Exception exception = new("Teams not found");
+                    throw exception;
                 }
 
-                var scoreTeam1 = team1.Score;
-                var scoreTeam2 = team2.Score;
-                var winner = scoreTeam1 > scoreTeam2 ? team1.Id : team2.Id;
+                int scoreTeam1 = team1.Score;
+                int scoreTeam2 = team2.Score;
+                int winner = scoreTeam1 > scoreTeam2 ? team1.Id : team2.Id;
 
                 await using var connection = new MySqlConnection(_connectionString);
 
@@ -234,7 +236,7 @@ namespace PLGPlugin
 
                 _logger.LogInformation($"Match {id} updated successfully");
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 _logger.LogError(ex, "Error while openning the database connection");
                 throw;
@@ -329,8 +331,8 @@ namespace PLGPlugin
             {
                 await using MySqlConnection connection = await GetOpenConnectionAsync();
                 string query =
-                    @"INSERT INTO plg.members (steam_id, weight, is_logged_in, smoke_color, discord_id, discord_name)
-                             VALUES (@SteamID, @Weight, @IsLoggedIn, @SmokeColor, 0, @DiscordName);
+                    @"INSERT INTO plg.members (steam_id, weight, is_logged_in, smoke_color, name)
+                             VALUES (@SteamID, @Weight, @IsLoggedIn, @SmokeColor, @Name);
                              SELECT LAST_INSERT_ID();";
                 var parameters = new
                 {
@@ -338,11 +340,11 @@ namespace PLGPlugin
                     Weight = 6, // Default weight, adjust as needed
                     IsLoggedIn = false,
                     SmokeColor = "red",
-                    DiscordName = name ?? "test",
+                    Name = name ?? "test",
                 };
                 _ = await connection.ExecuteAsync(query, parameters);
             }
-            catch (System.Exception)
+            catch (Exception)
             {
                 Console.WriteLine($"Error creating player in DB: {steamID} -- {name}");
                 throw;
@@ -357,7 +359,7 @@ namespace PLGPlugin
                 string query =
                     $@"SELECT
                      m.discord_id DiscordId,
-                     m.discord_name DiscordName,
+                     m.name Name,
                      m.steam_id SteamId,
                      m.id MemberId,
                      m.weight,
@@ -385,7 +387,10 @@ namespace PLGPlugin
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error retrieving player by ID {steamId}: {ex.Message}");
+                Server.NextFrame(() =>
+                {
+                    Console.WriteLine($"Error retrieving player by ID {steamId}: {ex.Message}");
+                });
                 throw;
             }
         }

@@ -36,7 +36,7 @@ namespace PLGPlugin
                     try
                     {
                         playerDB = await _database.GetPlayerById(playerController.SteamID);
-                        Console.WriteLine($"Player data retrieved for ${playerDB?.DiscordName}");
+                        Console.WriteLine($"Player data retrieved for ${playerDB?.Name}");
                     }
                     catch (Exception)
                     {
@@ -88,7 +88,7 @@ namespace PLGPlugin
             if (_matchManager != null)
             {
                 MatchManager.MatchState state = _matchManager.State;
-                ReplyToUserCommand(player, $"[{ChatColors.Red} Match Manager is {state.ToString()}]{ChatColors.Default}");
+                ReplyToUserCommand(player, $"[{ChatColors.Red} Match Manager is {state}]{ChatColors.Default}");
             }
         }
 
@@ -98,9 +98,16 @@ namespace PLGPlugin
             {
                 return;
             }
-            if (_matchManager == null || _teams == null)
+            if (_matchManager == null)
             {
                 Logger?.Info("MatchManager or Teams is null");
+                ReplyToUserCommand(player, "Impossibe d'utiliser unready car le match manager est désactivé");
+                return;
+            }
+            if (_teams == null)
+            {
+                Logger?.Error("The teams are not defined for the match");
+                ReplyToUserCommand(player, "Les équipes ne sont pas définis");
                 return;
             }
             CsTeam side = player.Team;
@@ -108,7 +115,7 @@ namespace PLGPlugin
 
             TeamPLG? team = _teams.GetTeamBySide(side);
             string teamName = team != null ? team.Name : "Unknown";
-            BroadcastMessage($"Team {teamName} unready by {player.PlayerName}");
+            BroadcastMessage($"L'équipe {teamName} est unready par {player.PlayerName}");
         }
 
         public void OnReady(CCSPlayerController? player, CommandInfo? command)
@@ -117,9 +124,16 @@ namespace PLGPlugin
             {
                 return;
             }
-            if (_matchManager == null || _teams == null)
+            if (_matchManager == null)
             {
-                Logger?.Error("MatchManager or Teams is null");
+                ReplyToUserCommand(player, "Le match manager n'est pas activé !");
+                Logger?.Warning("MatchManager not defined");
+                return;
+            }
+            if (_teams == null)
+            {
+                ReplyToUserCommand(player, $"{ChatColors.DarkRed}Les équipes n'ont pas été trouvé pour le match${ChatColors.Default}");
+                Logger?.Error("Teams not defined");
                 return;
             }
             if (_playerManager == null)
@@ -128,21 +142,24 @@ namespace PLGPlugin
                 return;
             }
 
-            var plgPlayer = _playerManager.GetPlayer(player.SteamID);
+            PlgPlayer? plgPlayer = _playerManager.GetPlayer(player.SteamID);
+            string? teamOfPlayer = plgPlayer?.TeamName;
 
-            var teamOfPlayer = plgPlayer?.TeamName;
             if (teamOfPlayer == null)
             {
+
+                ReplyToUserCommand(player, "Vous n'avez pas d'équipe, changez de serveur ou faites .join pour rejoindre l'équipe");
                 Logger?.Error("the player has no team");
                 return;
             }
 
-            var team = _teams.GetTeamByName(teamOfPlayer);
+            TeamPLG? team = _teams.GetTeamByName(teamOfPlayer);
 
             if (team == null)
             {
                 Logger?.Error("the team of the player is not found");
                 ReplyToUserCommand(player, "Votre équipe n'a pas été trouvé, impossible de mettre ready");
+                ReplyToUserCommand(player, "Vous devez changez de serveur");
                 return;
             }
 
@@ -175,7 +192,8 @@ namespace PLGPlugin
                 return;
             }
             IEnumerable<string> allColors = SmokeColorPalette.GetAllColorKeys();
-            player.PrintToChat("Couleurs (.smoke maCouleur) :");
+            player.PrintToChat("Pour la commande, faire : .smoke maCouleur");
+            player.PrintToChat("Couleurs :");
             foreach (string color in allColors)
             {
                 player.PrintToChat(color);
@@ -251,29 +269,34 @@ namespace PLGPlugin
             {
                 if (_matchManager.State == MatchManager.MatchState.Ended)
                 {
-                    ReplyToUserCommand(player, $"[{ChatColors.Red}Cant do warmup when the match is ended !{ChatColors.Default}]");
-                    ReplyToUserCommand(player, $"[{ChatColors.Green}Use .match_new to make a new match{ChatColors.Default}]");
+                    ReplyToUserCommand(player, $"[{ChatColors.Red}Pas de match en cours, impossible de mettre pause{ChatColors.Default}]");
+                    ReplyToUserCommand(player, $"[{ChatColors.Green}Utiliser la commande .match_on et .match pour relancer un match{ChatColors.Default}]");
                 }
-                ReplyToUserCommand(player, $"[{ChatColors.Red}]Cant do warmup when the match is on{ChatColors.Default}");
+                ReplyToUserCommand(player, $"[{ChatColors.Red}]Impossibe de lancer le warmup en cours de match{ChatColors.Default}");
                 return;
             }
             ExecWarmup();
 
-            ReplyToUserCommand(player, $"[{ChatColors.Green}Warmup done !{ChatColors.Default}]");
+            ReplyToUserCommand(player, $"[{ChatColors.Green}Warmup !{ChatColors.Default}]");
         }
+
+        // TODO Match Cancel
+
 
         [ConsoleCommand("css_map", "Changes the map using changelevel")]
         public void OnChangeMapCommand(CCSPlayerController? player, CommandInfo command)
         {
             if (_matchManager?.State == MatchManager.MatchState.Live)
             {
-                ReplyToUserCommand(player, "Cant change map while the match is live, use match_off to stop it.");
+                ReplyToUserCommand(player, "Impossible de changer de map pendant le match");
+                ReplyToUserCommand(player, "Faire .match_off pour désactivé le match !");
                 return;
             }
             string mapName = command.ArgByIndex(1);
             HandleMapChangeCommand(player, mapName);
         }
 
+        // Start the match.cfg, no knife or warmup here
         [ConsoleCommand("css_start", "Execute a match cfg")]
         public void StartLive(CCSPlayerController? player, CommandInfo? command)
         {
@@ -326,6 +349,7 @@ namespace PLGPlugin
             HandleRestore(player, filename);
         }
 
+        // Start knife.cfg
         [ConsoleCommand("css_knife", "knife")]
         public void StartKnife(CCSPlayerController? player, CommandInfo? command)
         {
@@ -489,6 +513,7 @@ namespace PLGPlugin
                             if (playerData != null)
                             {
                                 _playerManager.UpdatePlayerWithData(player, playerData);
+                                ReplyToUserCommand(player, $"Tu as rejoint l'équipe {teamBySide.Name}");
                             }
                         });
                     });
