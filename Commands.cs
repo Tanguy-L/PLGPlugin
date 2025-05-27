@@ -36,7 +36,6 @@ namespace PLGPlugin
                     try
                     {
                         playerDB = await _database.GetPlayerById(playerController.SteamID);
-                        Console.WriteLine($"Player data retrieved for ${playerDB?.Name}");
                     }
                     catch (Exception)
                     {
@@ -62,7 +61,6 @@ namespace PLGPlugin
                                 playerPLG.Weight = playerDB.Weight.ToString();
                             }
                             _playerManager.UpdatePlayerWithData(playerController, playerDB);
-                            Console.WriteLine($"Player data retrieved for {playerController.SteamID}: {playerPLG.PlayerName}");
                         });
                     }
                 });
@@ -257,7 +255,13 @@ namespace PLGPlugin
             {
                 return;
             }
+
             UnPauseMatch();
+
+            if (_matchManager == null || _teams == null)
+            {
+                return;
+            }
 
             HandlePause(player, false);
         }
@@ -472,87 +476,95 @@ namespace PLGPlugin
             {
                 return;
             }
-            if (player == null || _matchManager == null || _database == null || _playerManager == null || _teams == null)
+            if (player == null || !player.IsValid || _matchManager == null || _database == null || _playerManager == null || _teams == null)
             {
                 Logger.Error("No match manager or database or player manager");
                 return;
             }
 
-            if (player.IsValid)
+            CsTeam side = player.Team;
+            TeamPLG? teamBySide = _teams.GetTeamBySide(side);
+            if (teamBySide == null)
             {
-                CsTeam side = player.Team;
-                TeamPLG? teamBySide = _teams.GetTeamBySide(side);
-                if (teamBySide == null)
+                Logger.Error("No team by side");
+                return;
+            }
+            int idTeamToJoin = teamBySide.Id;
+
+            try
+            {
+                ulong steamId = player.SteamID;
+                PlgPlayer? plgPlayer = _playerManager.GetPlayer(steamId);
+                if (plgPlayer == null || !plgPlayer.IsValid)
                 {
-                    Logger.Error("No team by side");
+                    Logger.Error("No plg player");
                     return;
                 }
-                int idTeamToJoin = teamBySide.Id;
-
-                try
+                string? memberId = plgPlayer.MemberId;
+                if (memberId == null)
                 {
-                    ulong steamId = player.SteamID;
-                    PlgPlayer? plgPlayer = _playerManager.GetPlayer(steamId);
-                    if (plgPlayer == null || !plgPlayer.IsValid)
+                    Logger.Error("No member id");
+                    return;
+                }
+                _ = Task.Run(async () =>
+                {
+                    await _database.JoinTeam(memberId, idTeamToJoin);
+                    PlayerFromDB? playerData = await _database.GetPlayerById(steamId);
+                    Server.NextFrame(() =>
                     {
-                        Logger.Error("No plg player");
-                        return;
-                    }
-                    string? memberId = plgPlayer.MemberId;
-                    if (memberId == null)
-                    {
-                        Logger.Error("No member id");
-                        return;
-                    }
-                    _ = Task.Run(async () =>
-                    {
-                        await _database.JoinTeam(memberId, idTeamToJoin);
-                        PlayerFromDB? playerData = await _database.GetPlayerById(steamId);
-                        Server.NextFrame(() =>
+                        if (playerData != null)
                         {
-                            if (playerData != null)
-                            {
-                                _playerManager.UpdatePlayerWithData(player, playerData);
-                                ReplyToUserCommand(player, $"Tu as rejoint l'équipe {teamBySide.Name}");
-                            }
-                        });
+                            _playerManager.UpdatePlayerWithData(player, playerData);
+                            ReplyToUserCommand(player, $"Tu as rejoint l'équipe {teamBySide.Name}");
+                        }
                     });
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error in HandlePlayerSetup: {ex.Message}");
-                }
-
+                });
             }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in HandlePlayerSetup: {ex.Message}");
+            }
+
         }
 
         [ConsoleCommand("css_switch", "switch")]
         public void Switch(CCSPlayerController? player, CommandInfo? command)
         {
-
             if (Logger == null)
             {
                 return;
             }
-            if (player == null || _playerManager == null || _matchManager == null || _teams == null)
+
+            if (player == null)
             {
-                Logger.Error("No match manager or no player manager");
+                Logger.Error("No players");
                 return;
             }
-            if (_matchManager != null && _matchManager.State == MatchManager.MatchState.WaitingForSideChoice)
+
+            if (_database == null || _playerManager == null || _matchManager == null || _teams == null)
+            {
+                Server.ExecuteCommand("mp_swapteams;mp_restartgame 1");
+                return;
+            }
+
+            if (_matchManager.State == MatchManager.MatchState.WaitingForSideChoice)
             {
                 PlgPlayer? playerPlg = _playerManager.GetPlayer(player.SteamID);
+
                 if (playerPlg == null || !playerPlg.IsValid)
                 {
                     Console.WriteLine("EROR: No player");
                     return;
                 }
+
                 int? knifeWinner = _matchManager.GetKnifeTeamId();
+
                 if (knifeWinner == null)
                 {
                     Logger.Error("No knife winner");
                     return;
                 }
+
                 TeamPLG? teamWinnerKnife = _teams.GetTeamById(knifeWinner.Value);
                 string nameWinner = teamWinnerKnife != null ? teamWinnerKnife.Name : "Unknown";
 
@@ -578,7 +590,13 @@ namespace PLGPlugin
             {
                 return;
             }
+
             PauseMatch();
+
+            if (_matchManager == null || _teams == null)
+            {
+                return;
+            }
             HandlePause(player);
         }
 
@@ -607,6 +625,11 @@ namespace PLGPlugin
         public void OnSetTeams(CCSPlayerController? player, CommandInfo? command)
         {
             if (_playerManager == null)
+            {
+                return;
+            }
+
+            if (_database == null)
             {
                 return;
             }

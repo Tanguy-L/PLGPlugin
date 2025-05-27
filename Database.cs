@@ -315,9 +315,12 @@ namespace PLGPlugin
             {
                 await using MySqlConnection connection = await GetOpenConnectionAsync();
 
-                string query =
-                    $@"UPDATE team_members SET team_id = '{idTeam}' WHERE member_id = {memberId}";
-                _ = await connection.ExecuteAsync(query);
+                string query = @"
+            INSERT INTO team_members (member_id, team_id) 
+            VALUES (@MemberId, @IdTeam)
+            ON DUPLICATE KEY UPDATE team_id = @IdTeam";
+
+                await connection.ExecuteAsync(query, new { MemberId = memberId, IdTeam = idTeam });
             }
             catch (Exception ex)
             {

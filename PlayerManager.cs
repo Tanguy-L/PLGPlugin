@@ -82,16 +82,6 @@ namespace PLGPlugin
             AddOrUpdatePlayer(playerPLG);
         }
 
-        public async Task LoadCache()
-        {
-            ThrowIfDisposed();
-            List<CCSPlayerController> allPlayers = Utilities.GetPlayers();
-            foreach (CCSPlayerController player in allPlayers)
-            {
-                // await AddPlgPlayer(player);
-            }
-        }
-
         public void Dispose()
         {
             Dispose(true);

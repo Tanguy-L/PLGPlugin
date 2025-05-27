@@ -78,42 +78,53 @@ namespace PLGPlugin
             // 2 = T, 3 = CT, 1 = Spectator, 0 = Unassigned
             int newTeamId = @event.Team;
 
-            if (player != null)
+            if (player == null || !player.IsValid || player.IsBot)
             {
-                if (player.IsBot)
-                {
-                    return HookResult.Continue;
-                }
+                return HookResult.Continue;
             }
 
-            if (player == null || _playerManager == null || _teams == null || _matchManager == null)
+            if (_database == null)
             {
-                Logger.Error("JoinTeam: No match manager or no player manager");
+                Logger.Warning("No DB");
+                return HookResult.Continue;
+            }
+
+            if (_playerManager == null)
+            {
+                Logger.Error("No player caches");
+                return HookResult.Continue;
+            }
+
+            if (_teams == null || _matchManager == null)
+            {
                 return HookResult.Continue;
             }
 
             PlgPlayer? plgPlayer = _playerManager.GetPlayer(player.SteamID);
             string? teamNamePlayer = plgPlayer?.TeamName;
 
+            CsTeam side = newTeamId == 2 ? CsTeam.Terrorist : CsTeam.CounterTerrorist;
+            TeamPLG? team = _teams.GetTeamBySide(side);
+
+            if (team == null || plgPlayer == null)
+            {
+                return HookResult.Continue;
+            }
+
             if (teamNamePlayer == null)
             {
                 Logger.Error("JoinTeam: No team name player");
+                ReplyToUserCommand(player, $"Tu n'as pas encore d'équipe, tu peux faire .join pour rejoindre l'équipe {team.Name}");
             }
             else
             {
                 if (_matchManager != null)
                 {
                     bool checkIfPlayerIsInTeam = _teams.IsSomeTeamWithName(teamNamePlayer);
-                    Logger.Info($"player {player} is in team {teamNamePlayer}");
                     if (!checkIfPlayerIsInTeam)
                     {
-                        CsTeam side = newTeamId == 2 ? CsTeam.Terrorist : CsTeam.CounterTerrorist;
-                        Logger.Info($"side: {side}");
-                        TeamPLG? team = _teams.GetTeamBySide(side);
-
                         if (team != null)
                         {
-                            Logger.Info($"team: {team.Name}");
                             ReplyToUserCommand(player, $"[OPTIONNEL] Pas d'équipe sur ce serveur,{ChatColors.Green} .join pour rejoindre l'équipe {team.Name} {ChatColors.Default}");
                             ReplyToUserCommand(player, $"Ton équipe {plgPlayer?.TeamName} est au serveur {plgPlayer?.TeamHostname}");
                         }
@@ -121,7 +132,6 @@ namespace PLGPlugin
                 }
             }
             return HookResult.Continue;
-
         }
 
 

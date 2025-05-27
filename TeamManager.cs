@@ -7,7 +7,7 @@ namespace PLGPlugin
     {
 
         private List<TeamPLG>? _teams;
-        private bool _disposed = false;
+        private bool _disposed;
 
         public TeamManager()
         {
@@ -95,7 +95,7 @@ namespace PLGPlugin
                 PLGPlugin.Instance.Logger?.Error("Teams is null");
                 return;
             }
-            _teams.ForEach(t => t.Side = t.Side == CsTeam.CounterTerrorist ? CsTeam.Terrorist : CsTeam.CounterTerrorist);
+            _teams.ForEach(static t => t.Side = t.Side == CsTeam.CounterTerrorist ? CsTeam.Terrorist : CsTeam.CounterTerrorist);
         }
 
         public bool IsSomeTeamWithName(string nameTeam)
