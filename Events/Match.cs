@@ -38,6 +38,12 @@ namespace PLGPlugin
                 Logger.Info("OnRoundEnd: No match manager or no team manager");
                 return HookResult.Continue;
             }
+
+            if (_sounds != null && _sounds.is1vXAlreadyPlayed)
+            {
+                _sounds.is1vXAlreadyPlayed = false;
+            }
+
             if (_matchManager.State == MatchManager.MatchState.Knife)
             {
                 _matchManager.DetermineTheKnifeWinner();

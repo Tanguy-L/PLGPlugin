@@ -78,11 +78,16 @@ namespace PLGPlugin
 
             if ((ctCount == 1 && tCount > 1) || (tCount == 1 && ctCount > 1))
             {
-                Random random = new();
-                int value = random.Next(0, 3);
-                if (value == 2)
+                if (!_sounds.is1vXAlreadyPlayed)
                 {
-                    _sounds.PlayForAllPlayers("sounds/plg_sounds/1vX.vsnd", 4000);
+
+                    Random random = new();
+                    int value = random.Next(0, 3);
+                    if (value == 2)
+                    {
+                        _sounds.is1vXAlreadyPlayed = true;
+                        _sounds.PlayForAllPlayers("sounds/plg_sounds/1vX.vsnd", 4000);
+                    }
                 }
             }
 

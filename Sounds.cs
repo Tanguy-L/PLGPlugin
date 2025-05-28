@@ -11,6 +11,7 @@ namespace PLGPlugin
         public bool isPlaying;
         public System.Timers.Timer _soundBlockTimer = new();
         public int duration;
+        public bool is1vXAlreadyPlayed;
         private readonly ILogger<Sounds>? _logger;
 
         public Sounds()
