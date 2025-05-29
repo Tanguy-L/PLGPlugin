@@ -44,6 +44,8 @@ namespace PLGPlugin
                 _sounds.is1vXAlreadyPlayed = false;
             }
 
+
+
             if (_matchManager.State == MatchManager.MatchState.Knife)
             {
                 _matchManager.DetermineTheKnifeWinner();
@@ -67,6 +69,12 @@ namespace PLGPlugin
                 {
                     Logger.Error("No knife winner");
                 }
+            }
+
+            bool isSwapRequired = IsTeamSwapRequired();
+            if (isSwapRequired)
+            {
+                _teams.ReverseSide();
             }
 
             return HookResult.Continue;
@@ -147,15 +155,22 @@ namespace PLGPlugin
             {
                 return HookResult.Continue;
             }
+
+            // ------------- ADD TEAM STATS MATCH ---------------
             IEnumerable<CCSTeam> teams = Utilities.FindAllEntitiesByDesignerName<CCSTeam>("cs_team_manager");
             if (_matchManager != null && _playerManager != null && _teams != null)
             {
                 foreach (CCSTeam team in teams)
                 {
+                    if (team.TeamNum != 2 && team.TeamNum != 3)
+                    {
+                        continue;
+                    }
                     byte teamNumber = team.TeamNum;
                     // 2 = T, 3 = CT, 1 = Spectator, 0 = Unassigned
                     CsTeam side = teamNumber == 2 ? CsTeam.Terrorist : CsTeam.CounterTerrorist;
                     TeamPLG? teamPLG = _teams.GetTeamBySide(side);
+
                     if (teamPLG == null)
                     {
                         Logger?.Error($"Team with side {side} not found");
@@ -173,6 +188,7 @@ namespace PLGPlugin
                 _matchManager?.SetWinnerTeam(bestTeam.Value);
             }
 
+            // ------------ ADD PLAYERS STATS --------------
             List<CCSPlayerController> allPlayers = Utilities.GetPlayers();
             Dictionary<string, Dictionary<string, object>>? playersStatsOnly = [];
 
@@ -225,7 +241,6 @@ namespace PLGPlugin
                         if (playerPlg.MemberId != null)
                         {
                             playerPlg.Stats = stats;
-                            _playerManager.AddOrUpdatePlayer(playerPlg);
                         }
                     }
                 }

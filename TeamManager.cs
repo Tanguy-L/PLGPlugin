@@ -11,7 +11,7 @@ namespace PLGPlugin
 
         public TeamManager()
         {
-            _teams = new List<TeamPLG>();
+            _teams = [];
         }
 
         public void ClearTeams()

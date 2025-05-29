@@ -38,6 +38,7 @@ namespace PLGPlugin
         public MatchState State { get; set; }
         private List<bool>? _teamsReady;
         private readonly string _pathConfig;
+        public bool _skipKnife = true;
 
         private string? _mapName;
         private string? _matchId;
@@ -336,10 +337,20 @@ namespace PLGPlugin
                     Server.ExecuteCommand($"mp_teamname_2 {team2Name}");
 
                     StartTvRecord();
-                    StartKnife();
 
-                    Console.WriteLine($"Le match démarre sur {mapName} et avec les équipes {team1Name} et {team2Name}");
-                    Console.WriteLine($"Place à la boucherie");
+                    if (_skipKnife)
+                    {
+                        GoGoGo();
+                    }
+                    else
+                    {
+                        StartKnife();
+                        Console.WriteLine($"Le match démarre sur {mapName} et avec les équipes {team1Name} et {team2Name}");
+                        Console.WriteLine($"Place à la boucherie");
+                    }
+
+
+
                 });
 
             });
@@ -347,8 +358,7 @@ namespace PLGPlugin
 
         public void GoGoGo()
         {
-
-            if (State == MatchState.WaitingForSideChoice)
+            if (State == MatchState.WaitingForSideChoice || (State == MatchState.Setup && _skipKnife))
             {
                 State = MatchState.Live;
                 StartLive();
@@ -371,6 +381,12 @@ namespace PLGPlugin
                     _logger.Error("EROR: team not found");
                     return;
                 }
+
+                _logger.Info("--------- LOG UPDATE STATS MATCH ---------");
+
+                _logger.Info(team1.Id.ToString());
+                _logger.Info(team2.Id.ToString());
+                _logger.Info(_matchId);
                 await _database.UpdateMatchStats(_matchId, team1, team2);
                 // await _database.UpdatePlayersStats(_playerManager, _matchId);
             }

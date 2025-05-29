@@ -68,6 +68,61 @@ namespace PLGPlugin
             }
         }
 
+        [ConsoleCommand("css_lbackups", "List the 3 most recent backup files with details")]
+        public void ListDetailedBackups(CCSPlayerController? player, CommandInfo? command)
+        {
+            if (player == null || _backup == null)
+            {
+                return;
+            }
+
+            if (!CanYouDoThat(player, "@css/generic"))
+            {
+                ReplyToUserCommand(player, $"{ChatColors.Red}You don't have permission to use this command{ChatColors.Default}");
+                return;
+            }
+
+            try
+            {
+                List<BackupFile> recentBackups = _backup.GetRecentBackups(null, 3);
+
+                if (recentBackups.Count == 0)
+                {
+                    ReplyToUserCommand(player, $"{ChatColors.Yellow}No backup files found{ChatColors.Default}");
+                    return;
+                }
+
+                ReplyToUserCommand(player, $"{ChatColors.Blue}=== Last 3 Backup Files ==={ChatColors.Default}");
+
+                for (int i = 0; i < recentBackups.Count; i++)
+                {
+                    BackupFile backup = recentBackups[i];
+                    char indexColor = i == 0 ? ChatColors.Green : ChatColors.White;
+
+                    ReplyToUserCommand(player,
+                        $"{indexColor}[{i + 1}] {backup.FileName}{ChatColors.Default}");
+                    ReplyToUserCommand(player,
+                        $"    Map: {ChatColors.Yellow}{backup.Map}{ChatColors.Default} | " +
+                        $"Round: {ChatColors.Gold}{(backup.Round > 0 ? backup.Round.ToString() : "N/A")}{ChatColors.Default}");
+                    ReplyToUserCommand(player,
+                        $"    Created: {ChatColors.Grey}{backup.FormattedDate}{ChatColors.Default} | " +
+                        $"Size: {ChatColors.Grey}{backup.FormattedSize}{ChatColors.Default}");
+
+                    if (i < recentBackups.Count - 1)
+                    {
+                        ReplyToUserCommand(player, ""); // Empty line separator
+                    }
+                }
+
+                ReplyToUserCommand(player, $"{ChatColors.Green}Use '.restore_last' to restore the most recent backup{ChatColors.Default}");
+            }
+            catch (Exception ex)
+            {
+                Logger?.Error($"Error listing detailed backups: {ex.Message}", ex);
+                ReplyToUserCommand(player, $"{ChatColors.Red}Error retrieving backup information{ChatColors.Default}");
+            }
+        }
+
         [ConsoleCommand("css_match_status", "Get the status of match manager")]
         public void GetMatchManagerStatus(CCSPlayerController? player, CommandInfo? command)
         {
@@ -228,23 +283,49 @@ namespace PLGPlugin
         [ConsoleCommand("css_test", "Dont test that command !")]
         public void OnTestCommand(CCSPlayerController? player, CommandInfo? command)
         {
-            if (player == null || _playerManager == null)
+
+            if (_matchManager == null || _playerManager == null || _teams == null)
             {
                 return;
             }
-
-            List<CCSPlayerController> allPlayers = Utilities.GetPlayers();
-
-
             IEnumerable<CCSTeam> teams = Utilities.FindAllEntitiesByDesignerName<CCSTeam>("cs_team_manager");
-
-            foreach (CCSTeam team in teams)
+            if (_matchManager != null && _playerManager != null && _teams != null)
             {
-                BroadcastMessage($"{team.Index}");
-                BroadcastMessage($"{team.TeamNum}");
-                BroadcastMessage($"{team.TeamMatchStat}");
-                BroadcastMessage($"{team.Score}");
+                foreach (CCSTeam team in teams)
+                {
+                    if (team.TeamNum != 2 && team.TeamNum != 3)
+                    {
+                        continue;
+                    }
+                    Logger.Info("------- TEAM -------");
+                    Logger.Info(team.TeamNum.ToString());
+                    Logger.Info(team.Score.ToString());
+                    byte teamNumber = team.TeamNum;
+                    // 2 = T, 3 = CT, 1 = Spectator, 0 = Unassigned
+                    CsTeam side = teamNumber == 2 ? CsTeam.Terrorist : CsTeam.CounterTerrorist;
+                    Logger.Info(side.ToString());
+                    TeamPLG? teamPLG = _teams.GetTeamBySide(side);
 
+                    Logger.Info(teamPLG.Id.ToString());
+                    if (teamPLG == null)
+                    {
+                        Logger?.Error($"Team with side {side} not found");
+                        return;
+                    }
+                    teamPLG.Score = team.Score;
+                }
+            }
+
+            int? bestTeam = _teams?.IdOfBestTeam();
+
+
+            if (bestTeam != null)
+            {
+                _matchManager?.SetWinnerTeam(bestTeam.Value);
+            }
+            if (player == null || _playerManager == null)
+            {
+                return;
             }
         }
 
@@ -284,9 +365,6 @@ namespace PLGPlugin
             ReplyToUserCommand(player, $"[{ChatColors.Green}Warmup !{ChatColors.Default}]");
         }
 
-        // TODO Match Cancel
-
-
         [ConsoleCommand("css_map", "Changes the map using changelevel")]
         public void OnChangeMapCommand(CCSPlayerController? player, CommandInfo command)
         {
@@ -298,6 +376,7 @@ namespace PLGPlugin
             }
             string mapName = command.ArgByIndex(1);
             HandleMapChangeCommand(player, mapName);
+            Server.NextFrame(ResetMatchManager);
         }
 
         // Start the match.cfg, no knife or warmup here
@@ -314,36 +393,6 @@ namespace PLGPlugin
             RecordTheDemo();
 
             ReplyToUserCommand(player, $"[{ChatColors.Green}Live config started !{ChatColors.Default}]");
-        }
-
-        [ConsoleCommand("css_lbackups", "Get 3 last backups files")]
-        public void OnGetBackups(CCSPlayerController? player, CommandInfo? command)
-        {
-            string map = Server.MapName;
-            DateTime date = DateTime.Now;
-            string parsedDate = date.ToString("yyyyMMdd");
-            string path = Server.GameDirectory + "/csgo";
-            string[] fileEntries = Directory.GetFiles(path);
-
-            IEnumerable<string> files = Directory.EnumerateFiles(
-                path,
-                $"{parsedDate}_{map}*.txt",
-                SearchOption.AllDirectories
-            );
-
-            IEnumerable<string> lastOnes = files
-                .TakeLast(3)
-                .ToList()
-                .Select(static e =>
-                {
-                    string[] split = e.Split("/");
-                    return split[^1];
-                });
-
-            foreach (string filename in lastOnes)
-            {
-                player?.PrintToChat(filename);
-            }
         }
 
         [ConsoleCommand("css_restore", "restore a backup file by filename")]

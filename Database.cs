@@ -210,14 +210,14 @@ namespace PLGPlugin
                 int scoreTeam2 = team2.Score;
                 int winner = scoreTeam1 > scoreTeam2 ? team1.Id : team2.Id;
 
-                await using var connection = new MySqlConnection(_connectionString);
+                await using MySqlConnection connection = new MySqlConnection(_connectionString);
 
                 string query = @"UPDATE plg.match_stats_matches 
                 SET end_time = @EndTime, 
                     winner = @Winner, 
                     team1_score = @Team1Score, 
                     team2_score = @Team2Score
-                WHERE id = @Id";
+                WHERE matchid = @Id";
 
                 var parameters = new
                 {
@@ -227,7 +227,7 @@ namespace PLGPlugin
                     Team1Score = scoreTeam1,
                     Team2Score = scoreTeam2,
                 };
-                var rowsAffected = await connection.ExecuteAsync(query, parameters);
+                int rowsAffected = await connection.ExecuteAsync(query, parameters);
 
                 if (rowsAffected == 0)
                 {
@@ -247,7 +247,7 @@ namespace PLGPlugin
         {
             try
             {
-                await using var connection = new MySqlConnection(_connectionString);
+                await using MySqlConnection connection = new(_connectionString);
                 //TODO remove ip_server from db
                 string query = @"INSERT INTO plg.match_stats_matches 
                     (start_time, end_time, winner, team1_score, team2_score, series_type, server_ip, team1_id, team2_id)

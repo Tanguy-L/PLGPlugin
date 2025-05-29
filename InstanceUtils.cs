@@ -179,6 +179,13 @@ namespace PLGPlugin
             _matchManager = null;
         }
 
+        private void ResetMatchManager()
+        {
+            _matchManager = null;
+            _teams = null;
+            InitMatchManager();
+        }
+
         private void InitMatchManager()
         {
             if (Logger == null)
@@ -257,6 +264,36 @@ namespace PLGPlugin
                              $"{(_backup == null ? "backup " : "")}" +
                              $"{(_teams == null ? "teams" : "")}");
             }
+        }
+
+        public bool IsTeamSwapRequired()
+        {
+            // Handling OTs and side swaps (Referred from Get5)
+            CCSGameRules gameRules = Utilities.FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules").First().GameRules!;
+            int roundsPlayed = gameRules.TotalRoundsPlayed;
+
+            int roundsPerHalf = ConVar.Find("mp_maxrounds")!.GetPrimitiveValue<int>() / 2;
+            int roundsPerOTHalf = ConVar.Find("mp_overtime_maxrounds")!.GetPrimitiveValue<int>() / 2;
+
+            bool halftimeEnabled = ConVar.Find("mp_halftime")!.GetPrimitiveValue<bool>();
+
+            if (halftimeEnabled)
+            {
+                if (roundsPlayed == roundsPerHalf)
+                {
+                    return true;
+                }
+                // Now in OT.
+                if (roundsPlayed >= 2 * roundsPerHalf)
+                {
+                    int otround = roundsPlayed - 2 * roundsPerHalf;
+                    if ((otround + roundsPerOTHalf) % (2 * roundsPerOTHalf) == 0)
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
         }
 
         private void SendAvailableCommandsMessage(CCSPlayerController? player)
