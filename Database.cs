@@ -58,9 +58,10 @@ namespace PLGPlugin
             return builder.ConnectionString;
         }
 
-        public async Task UpdatePlayersStats(PlayerManager playerManager, string matchId)
+        public async Task UpdatePlayersStats(IPlayerManager playerManager, string matchId, ITeamManager teamManager)
         {
-            await using var connection = new MySqlConnection(_connectionString);
+            await using MySqlConnection connection = new(_connectionString);
+            _logger.LogInformation("UPDATING PLAYER STATS");
 
             if (playerManager == null)
             {
@@ -70,6 +71,12 @@ namespace PLGPlugin
 
             foreach (PlgPlayer plgPlayer in playerManager.GetAllPlayers())
             {
+                _logger.LogInformation("update player stats");
+                if (plgPlayer == null)
+                {
+                    continue;
+                }
+
                 string sqlQuery = $@"
                     INSERT INTO match_stats_players (
                         matchid, mapnumber, member_id, team_id, kills, deaths, damage, assists,
@@ -80,7 +87,7 @@ namespace PLGPlugin
                         equipment_value, money_saved, kill_reward, live_time, head_shot_kills,
                         cash_earned, enemies_flashed)
                     VALUES (
-                        @matchId, @mapNumber, @memberId, @teamId, @kills, @deaths, @damage, @assists,
+                        @match_id, @map_number, @member_id, @team_id, @kills, @deaths, @damage, @assists,
                         @enemy5ks, @enemy4ks, @enemy3ks, @enemy2ks, @utility_count, @utility_damage,
                         @utility_successes, @utility_enemies, @flash_count, @flash_successes,
                         @health_points_removed_total, @health_points_dealt_total, @shots_fired_total,
@@ -103,53 +110,69 @@ namespace PLGPlugin
                         cash_earned = @cash_earned, enemies_flashed = @enemies_flashed";
 
                 Dictionary<string, object>? playerStats = plgPlayer.Stats;
-                if (playerStats == null)
+
+                TeamPLG? team = teamManager.GetTeamByName(plgPlayer.TeamName);
+                _logger.LogInformation(team.Id.ToString());
+                if (playerStats == null || team == null)
                 {
                     _logger.LogWarning($"No stats found for player {plgPlayer.MemberId}");
-                    return;
+                    continue;
                 }
+
                 string? memberId = plgPlayer.MemberId;
 
-                _ = await connection.ExecuteAsync(sqlQuery,
-                new
+                _logger.LogInformation($"player ---- {plgPlayer.PlayerName} ----- {team.Id.ToString()} ---- {matchId}");
+
+                try
                 {
-                    matchId,
-                    mapNumber = 1,
-                    memberId,
-                    team = playerStats["TeamName"],
-                    name = playerStats["PlayerName"],
-                    kills = playerStats["Kills"],
-                    deaths = playerStats["Deaths"],
-                    damage = playerStats["Damage"],
-                    assists = playerStats["Assists"],
-                    enemy5ks = playerStats["Enemy5Ks"],
-                    enemy4ks = playerStats["Enemy4Ks"],
-                    enemy3ks = playerStats["Enemy3Ks"],
-                    enemy2ks = playerStats["Enemy2Ks"],
-                    utility_count = playerStats["UtilityCount"],
-                    utility_damage = playerStats["UtilityDamage"],
-                    utility_successes = playerStats["UtilitySuccess"],
-                    utility_enemies = playerStats["UtilityEnemies"],
-                    flash_count = playerStats["FlashCount"],
-                    flash_successes = playerStats["FlashSuccess"],
-                    health_points_removed_total = playerStats["HealthPointsRemovedTotal"],
-                    health_points_dealt_total = playerStats["HealthPointsDealtTotal"],
-                    shots_fired_total = playerStats["ShotsFiredTotal"],
-                    shots_on_target_total = playerStats["ShotsOnTargetTotal"],
-                    v1_count = playerStats["1v1Count"],
-                    v1_wins = playerStats["1v1Wins"],
-                    v2_count = playerStats["1v2Count"],
-                    v2_wins = playerStats["1v2Wins"],
-                    entry_count = playerStats["EntryCount"],
-                    entry_wins = playerStats["EntryWins"],
-                    equipment_value = playerStats["EquipmentValue"],
-                    money_saved = playerStats["MoneySaved"],
-                    kill_reward = playerStats["KillReward"],
-                    live_time = playerStats["LiveTime"],
-                    head_shot_kills = playerStats["HeadShotKills"],
-                    cash_earned = playerStats["CashEarned"],
-                    enemies_flashed = playerStats["EnemiesFlashed"]
-                });
+                    _ = await connection.ExecuteAsync(sqlQuery,
+                    new
+                    {
+                        match_id = matchId,
+                        map_number = 1,
+                        member_id = memberId,
+                        team_id = team.Id,
+                        name = plgPlayer.PlayerName,
+                        kills = playerStats["Kills"],
+                        deaths = playerStats["Deaths"],
+                        damage = playerStats["Damage"],
+                        assists = playerStats["Assists"],
+                        enemy5ks = playerStats["Enemy5Ks"],
+                        enemy4ks = playerStats["Enemy4Ks"],
+                        enemy3ks = playerStats["Enemy3Ks"],
+                        enemy2ks = playerStats["Enemy2Ks"],
+                        utility_count = playerStats["UtilityCount"],
+                        utility_damage = playerStats["UtilityDamage"],
+                        utility_successes = playerStats["UtilitySuccess"],
+                        utility_enemies = playerStats["UtilityEnemies"],
+                        flash_count = playerStats["FlashCount"],
+                        flash_successes = playerStats["FlashSuccess"],
+                        health_points_removed_total = playerStats["HealthPointsRemovedTotal"],
+                        health_points_dealt_total = playerStats["HealthPointsDealtTotal"],
+                        shots_fired_total = playerStats["ShotsFiredTotal"],
+                        shots_on_target_total = playerStats["ShotsOnTargetTotal"],
+                        v1_count = playerStats["1v1Count"],
+                        v1_wins = playerStats["1v1Wins"],
+                        v2_count = playerStats["1v2Count"],
+                        v2_wins = playerStats["1v2Wins"],
+                        entry_count = playerStats["EntryCount"],
+                        entry_wins = playerStats["EntryWins"],
+                        equipment_value = playerStats["EquipmentValue"],
+                        money_saved = playerStats["MoneySaved"],
+                        kill_reward = playerStats["KillReward"],
+                        live_time = playerStats["LiveTime"],
+                        head_shot_kills = playerStats["HeadShotKills"],
+                        cash_earned = playerStats["CashEarned"],
+                        enemies_flashed = playerStats["EnemiesFlashed"]
+                    });
+                }
+                catch (Exception ex)
+                {
+                    string message = $"Error : {ex}";
+                    _logger.LogError(message);
+                    throw;
+                }
+
             }
         }
 
@@ -247,33 +270,67 @@ namespace PLGPlugin
         {
             try
             {
-                await using MySqlConnection connection = new(_connectionString);
-                //TODO remove ip_server from db
-                string query = @"INSERT INTO plg.match_stats_matches 
-                    (start_time, end_time, winner, team1_score, team2_score, series_type, server_ip, team1_id, team2_id)
-                    VALUES 
-                    (@StarTime, NULL, NULL, 0, 0, 'BO1', '-', @team1, @team2);
-                    SELECT LAST_INSERT_ID();
-                ";
-                var parameters = new
+                await using var connection = new MySqlConnection(_connectionString);
+
+                // Start a transaction to ensure both inserts succeed
+                await connection.OpenAsync();
+                using var transaction = await connection.BeginTransactionAsync();
+
+                try
                 {
-                    StarTime = DateTime.Now,
-                    MapName = map,
-                    team1 = teamId1,
-                    team2 = teamId2
-                };
-                object? matchId = await connection.ExecuteScalarAsync(query, parameters);
-                _logger.LogInformation("Match id: " + matchId);
-                string? matchIdString = matchId?.ToString();
-                if (string.IsNullOrWhiteSpace(matchIdString))
-                {
-                    throw new Exception("Insertion of match failed");
+                    // Insert into match_stats_matches
+                    string matchQuery = @"INSERT INTO plg.match_stats_matches 
+                (start_time, end_time, winner, team1_score, team2_score, series_type, server_ip, team1_id, team2_id)
+                VALUES 
+                (@StarTime, NULL, NULL, 0, 0, 'BO1', '-', @team1, @team2);
+                SELECT LAST_INSERT_ID();";
+
+                    var matchParameters = new
+                    {
+                        StarTime = DateTime.Now,
+                        team1 = teamId1,
+                        team2 = teamId2
+                    };
+
+                    object? matchId = await connection.ExecuteScalarAsync(matchQuery, matchParameters, transaction);
+                    string? matchIdString = matchId?.ToString();
+
+                    if (string.IsNullOrWhiteSpace(matchIdString))
+                    {
+                        throw new Exception("Insertion of match failed");
+                    }
+
+                    // Insert into match_stats_maps
+                    string mapQuery = @"INSERT INTO plg.match_stats_maps 
+                (matchid, mapnumber, mapname, start_time) 
+                VALUES 
+                (@matchId, @mapNumber, @mapName, @startTime)";
+
+                    var mapParameters = new
+                    {
+                        matchId = matchIdString,
+                        mapNumber = 1,
+                        mapName = map,
+                        startTime = DateTime.Now
+                    };
+
+                    await connection.ExecuteAsync(mapQuery, mapParameters, transaction);
+
+                    // Commit the transaction
+                    await transaction.CommitAsync();
+
+                    _logger.LogInformation($"Match created with ID: {matchIdString}");
+                    return matchIdString;
                 }
-                return matchIdString;
+                catch
+                {
+                    await transaction.RollbackAsync();
+                    throw;
+                }
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
-                _logger.LogError(ex, "Error while openning the database connection");
+                _logger.LogError(ex, "Error while creating new match");
                 throw;
             }
         }

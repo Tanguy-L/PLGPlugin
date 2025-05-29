@@ -9,11 +9,16 @@ namespace PLGPlugin.Interfaces
         Task<List<TeamPLG>> GetTeamsByHostname(string hostname);
         Task<string> NewMatch(string map, int teamId1, int teamId2);
         Task UpdateMatchStats(string id, TeamPLG team1, TeamPLG team2);
-        // Task UpdatePlayersStats(IPlayerManager playerManager, string matchId);
+        Task UpdatePlayersStats(IPlayerManager playerManager, string matchId, ITeamManager teamManager);
         Task SetSmoke(ulong steamId, string color);
         Task JoinTeam(string memberId, int? idTeam);
         Task CreatePlayerInDB(string name, ulong steamID);
     }
+
+    // public interface IBackupManager: IDisposable
+    // {
+    //
+    // }
 
     public interface IPlayerManager : IDisposable
     {
@@ -32,6 +37,7 @@ namespace PLGPlugin.Interfaces
         TeamPLG? GetTeamByIndex(int index);
         TeamPLG? GetTeamById(int id);
         TeamPLG? GetTeamBySide(CsTeam side);
+        TeamPLG? GetTeamByName(string name);
         void ReverseSide();
         bool IsSomeTeamWithName(string nameTeam);
         int? IdOfBestTeam();

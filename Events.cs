@@ -15,7 +15,6 @@ namespace PLGPlugin
 
             // For Matche Handling
             RegisterEventHandler<EventRoundPoststart>(OnRoundPostStart);
-            RegisterEventHandler<EventCsWinPanelMatch>(WinPanelEventHandler);
             RegisterEventHandler<EventRoundEnd>(OnRoundEnd);
             RegisterEventHandler<EventCsWinPanelMatch>(OnMatchEnd);
             RegisterEventHandler<EventPlayerTeam>(OnJoinTeam);

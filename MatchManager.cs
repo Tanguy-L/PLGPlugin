@@ -98,6 +98,8 @@ namespace PLGPlugin
             throw new ObjectDisposedException(nameof(MatchManager));
         }
 
+
+
         public void Dispose()
         {
             if (!_disposed)
@@ -180,7 +182,7 @@ namespace PLGPlugin
                         _ = Directory.CreateDirectory(directoryPath);
                     }
                 }
-                string demoPath = "/demos/" + title;
+                string demoPath = "demos/" + title;
                 _logger.Info($"[StartDemoRecoding] Starting demo recording, path: {demoPath}");
                 Server.ExecuteCommand($"tv_record {demoPath}");
             }
@@ -383,12 +385,11 @@ namespace PLGPlugin
                 }
 
                 _logger.Info("--------- LOG UPDATE STATS MATCH ---------");
-
                 _logger.Info(team1.Id.ToString());
                 _logger.Info(team2.Id.ToString());
                 _logger.Info(_matchId);
                 await _database.UpdateMatchStats(_matchId, team1, team2);
-                // await _database.UpdatePlayersStats(_playerManager, _matchId);
+                await _database.UpdatePlayersStats(_playerManager, _matchId, _teamManager);
             }
         }
 

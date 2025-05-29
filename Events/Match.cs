@@ -21,11 +21,11 @@ namespace PLGPlugin
             return HookResult.Continue;
         }
 
-        public HookResult WinPanelEventHandler(EventCsWinPanelMatch @event, GameEventInfo info)
-        {
-            Server.ExecuteCommand("tv_stoprecord;");
-            return HookResult.Continue;
-        }
+        // public HookResult WinPanelEventHandler(EventCsWinPanelMatch @event, GameEventInfo info)
+        // {
+        //     Server.ExecuteCommand("tv_stoprecord;");
+        //     return HookResult.Continue;
+        // }
 
         public HookResult OnRoundEnd(EventRoundEnd @event, GameEventInfo info)
         {
@@ -43,8 +43,6 @@ namespace PLGPlugin
             {
                 _sounds.is1vXAlreadyPlayed = false;
             }
-
-
 
             if (_matchManager.State == MatchManager.MatchState.Knife)
             {
@@ -116,7 +114,6 @@ namespace PLGPlugin
 
             PlgPlayer? plgPlayer = _playerManager.GetPlayer(player.SteamID);
             string? teamNamePlayer = plgPlayer?.TeamName;
-
             CsTeam side = newTeamId == 2 ? CsTeam.Terrorist : CsTeam.CounterTerrorist;
             TeamPLG? team = _teams.GetTeamBySide(side);
 
@@ -194,6 +191,10 @@ namespace PLGPlugin
 
             foreach (CCSPlayerController _player in allPlayers)
             {
+                if (!_player.IsValid || _player.IsBot)
+                {
+                    continue;
+                }
                 ulong id = _player.SteamID;
                 PlgPlayer? playerPlg = _playerManager?.GetPlayer(id);
                 if (playerPlg != null)
@@ -245,13 +246,17 @@ namespace PLGPlugin
                     }
                 }
             }
-
-            _ = Task.Run(async () =>
+            if (_matchManager != null)
             {
-                await _matchManager.UpdateStatsMatch();
+                _ = Task.Run(_matchManager.UpdateStatsMatch);
+            }
+
+
+            Server.NextFrame(() =>
+            {
+                _matchManager.EndMatch();
             });
 
-            _matchManager.EndMatch();
 
             return HookResult.Continue;
         }

@@ -106,7 +106,7 @@ namespace PLGPlugin
                 _playerManager = new(_database, Logger);
                 _teams = new();
             }
-            _backup = new();
+            _backup = new(Logger);
             _sounds = new();
 
             // ---------------
@@ -150,7 +150,7 @@ namespace PLGPlugin
                 { ".set_teams", OnSetTeams },
                 { ".match_off", MatchManagerOff },
                 { ".match_on", MatchManagerOn },
-                { ".lbackups", ListDetailedBackups },
+                // { ".lbackups", ListDetailedBackups },
                 { ".test", OnTestCommand },
             };
 
