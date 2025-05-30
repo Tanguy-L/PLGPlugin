@@ -188,6 +188,8 @@ namespace PLGPlugin
 
         private void InitMatchManager()
         {
+
+            _backup = new();
             if (Logger == null)
             {
                 throw new InvalidOperationException("Logger must be initialized before initializing the match manager.");

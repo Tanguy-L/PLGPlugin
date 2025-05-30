@@ -88,6 +88,11 @@ namespace PLGPlugin
             }
         }
 
+        public string? GetMatchId()
+        {
+            return _matchId;
+        }
+
         private void ThrowIfDisposed()
         {
             if (!_disposed)
@@ -335,10 +340,16 @@ namespace PLGPlugin
                     SetPlayersInTeams();
                     string? team1Name = _teamManager.GetTeamById(_idTeam1.Value)?.Name;
                     string? team2Name = _teamManager.GetTeamById(_idTeam2.Value)?.Name;
+                    if (team1Name == null || team2Name == null)
+                    {
+                        return;
+                    }
                     Server.ExecuteCommand($"mp_teamname_1 {team1Name}");
                     Server.ExecuteCommand($"mp_teamname_2 {team2Name}");
 
                     StartTvRecord();
+
+                    _backup.SetBackupPLG(_matchId, team1Name, team2Name);
 
                     if (_skipKnife)
                     {
@@ -350,11 +361,7 @@ namespace PLGPlugin
                         Console.WriteLine($"Le match démarre sur {mapName} et avec les équipes {team1Name} et {team2Name}");
                         Console.WriteLine($"Place à la boucherie");
                     }
-
-
-
                 });
-
             });
         }
 

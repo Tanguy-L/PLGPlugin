@@ -270,11 +270,11 @@ namespace PLGPlugin
         {
             try
             {
-                await using var connection = new MySqlConnection(_connectionString);
+                await using MySqlConnection connection = new(_connectionString);
 
                 // Start a transaction to ensure both inserts succeed
                 await connection.OpenAsync();
-                using var transaction = await connection.BeginTransactionAsync();
+                using MySqlTransaction transaction = await connection.BeginTransactionAsync();
 
                 try
                 {

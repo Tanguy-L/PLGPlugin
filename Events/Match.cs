@@ -44,6 +44,11 @@ namespace PLGPlugin
                 _sounds.is1vXAlreadyPlayed = false;
             }
 
+            if (_matchManager.State == MatchManager.MatchState.Live && _backup != null)
+            {
+                _backup.RefreshBackupCache();
+            }
+
             if (_matchManager.State == MatchManager.MatchState.Knife)
             {
                 _matchManager.DetermineTheKnifeWinner();
