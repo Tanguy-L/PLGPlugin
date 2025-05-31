@@ -68,60 +68,67 @@ namespace PLGPlugin
             }
         }
 
-        // [ConsoleCommand("css_lbackups", "List the 3 most recent backup files with details")]
-        // public void ListDetailedBackups(CCSPlayerController? player, CommandInfo? command)
-        // {
-        //     if (player == null || _backup == null)
-        //     {
-        //         return;
-        //     }
-        //
-        //     if (!CanYouDoThat(player, "@css/generic"))
-        //     {
-        //         ReplyToUserCommand(player, $"{ChatColors.Red}You don't have permission to use this command{ChatColors.Default}");
-        //         return;
-        //     }
-        //
-        //     try
-        //     {
-        //         List<BackupFile> recentBackups = _backup.GetRecentBackups(null, 3);
-        //
-        //         if (recentBackups.Count == 0)
-        //         {
-        //             ReplyToUserCommand(player, $"{ChatColors.Yellow}No backup files found{ChatColors.Default}");
-        //             return;
-        //         }
-        //
-        //         ReplyToUserCommand(player, $"{ChatColors.Blue}=== Last 3 Backup Files ==={ChatColors.Default}");
-        //
-        //         for (int i = 0; i < recentBackups.Count; i++)
-        //         {
-        //             BackupFile backup = recentBackups[i];
-        //             char indexColor = i == 0 ? ChatColors.Green : ChatColors.White;
-        //
-        //             ReplyToUserCommand(player,
-        //                 $"{indexColor}[{i + 1}] {backup.FileName}{ChatColors.Default}");
-        //             ReplyToUserCommand(player,
-        //                 $"    Map: {ChatColors.Yellow}{backup.Map}{ChatColors.Default} | " +
-        //                 $"Round: {ChatColors.Gold}{(backup.Round > 0 ? backup.Round.ToString() : "N/A")}{ChatColors.Default}");
-        //             ReplyToUserCommand(player,
-        //                 $"    Created: {ChatColors.Grey}{backup.FormattedDate}{ChatColors.Default} | " +
-        //                 $"Size: {ChatColors.Grey}{backup.FormattedSize}{ChatColors.Default}");
-        //
-        //             if (i < recentBackups.Count - 1)
-        //             {
-        //                 ReplyToUserCommand(player, ""); // Empty line separator
-        //             }
-        //         }
-        //
-        //         ReplyToUserCommand(player, $"{ChatColors.Green}Use '.restore_last' to restore the most recent backup{ChatColors.Default}");
-        //     }
-        //     catch (Exception ex)
-        //     {
-        //         Logger?.Error($"Error listing detailed backups: {ex.Message}", ex);
-        //         ReplyToUserCommand(player, $"{ChatColors.Red}Error retrieving backup information{ChatColors.Default}");
-        //     }
-        // }
+        [ConsoleCommand("css_lbackups", "List the 3 most recent backup files with details")]
+        public void ListDetailedBackups(CCSPlayerController? player, CommandInfo? command)
+        {
+            if (player == null || _backup == null)
+            {
+                return;
+            }
+
+            if (!CanYouDoThat(player, "@css/generic"))
+            {
+                ReplyToUserCommand(player, $"{ChatColors.Red}You don't have permission to use this command{ChatColors.Default}");
+                return;
+            }
+
+            _backup.RefreshBackupCache();
+
+            try
+            {
+                bool isMatchPLG = _matchManager != null && _matchManager.State != MatchManager.MatchState.Setup;
+
+                List<BackupFile> recentBackups = isMatchPLG ? _backup.GetLastPLGBackups(_matchManager.GetMatchId()) : _backup.GetLastBackups();
+
+                if (recentBackups.Count == 0)
+                {
+                    ReplyToUserCommand(player, $"{ChatColors.Yellow}Pas de backups trouvés{ChatColors.Default}");
+                    return;
+                }
+
+                ReplyToUserCommand(player, $"{ChatColors.Blue}=== Backups ==={ChatColors.Default}");
+
+                for (int i = 0; i < recentBackups.Count; i++)
+                {
+                    BackupFile backup = recentBackups[i];
+                    char indexColor = i == 0 ? ChatColors.Green : ChatColors.White;
+                    string message = $"{i} --- {backup.DisplayName}";
+
+                    ReplyToUserCommand(player, backup.DisplayName);
+
+                    // ReplyToUserCommand(player,
+                    //     $"{indexColor}[{i + 1}] {backup.FileName}{ChatColors.Default}");
+                    // ReplyToUserCommand(player,
+                    //     $"    Map: {ChatColors.Yellow}{backup.Map}{ChatColors.Default} | " +
+                    //     $"Round: {ChatColors.Gold}{(backup.Round > 0 ? backup.Round.ToString() : "N/A")}{ChatColors.Default}");
+                    // ReplyToUserCommand(player,
+                    //     $"    Created: {ChatColors.Grey}{backup.FormattedDate}{ChatColors.Default} | " +
+                    //     $"Size: {ChatColors.Grey}{backup.FormattedSize}{ChatColors.Default}");
+                    //
+                    // if (i < recentBackups.Count - 1)
+                    // {
+                    //     ReplyToUserCommand(player, ""); // Empty line separator
+                    // }
+                }
+
+                ReplyToUserCommand(player, $"{ChatColors.Green}Use '.restore_last' to restore the most recent backup{ChatColors.Default}");
+            }
+            catch (Exception ex)
+            {
+                Logger?.Error($"Error listing detailed backups: {ex.Message}", ex);
+                ReplyToUserCommand(player, $"{ChatColors.Red}Error retrieving backup information{ChatColors.Default}");
+            }
+        }
 
         [ConsoleCommand("css_match_status", "Get the status of match manager")]
         public void GetMatchManagerStatus(CCSPlayerController? player, CommandInfo? command)

@@ -150,7 +150,7 @@ namespace PLGPlugin
                 { ".set_teams", OnSetTeams },
                 { ".match_off", MatchManagerOff },
                 { ".match_on", MatchManagerOn },
-                // { ".lbackups", ListDetailedBackups },
+                { ".lbackups", ListDetailedBackups },
                 { ".test", OnTestCommand },
             };
 

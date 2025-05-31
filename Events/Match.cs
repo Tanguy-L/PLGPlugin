@@ -21,12 +21,6 @@ namespace PLGPlugin
             return HookResult.Continue;
         }
 
-        // public HookResult WinPanelEventHandler(EventCsWinPanelMatch @event, GameEventInfo info)
-        // {
-        //     Server.ExecuteCommand("tv_stoprecord;");
-        //     return HookResult.Continue;
-        // }
-
         public HookResult OnRoundEnd(EventRoundEnd @event, GameEventInfo info)
         {
             if (Logger == null)
@@ -42,11 +36,6 @@ namespace PLGPlugin
             if (_sounds != null && _sounds.is1vXAlreadyPlayed)
             {
                 _sounds.is1vXAlreadyPlayed = false;
-            }
-
-            if (_matchManager.State == MatchManager.MatchState.Live && _backup != null)
-            {
-                _backup.RefreshBackupCache();
             }
 
             if (_matchManager.State == MatchManager.MatchState.Knife)

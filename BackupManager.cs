@@ -8,7 +8,7 @@ namespace PLGPlugin
     {
         private readonly ILoggingService _logger;
         private readonly string _backupDirectory;
-        private readonly string _prefixFilename = "plg_";
+        private readonly string _prefixFilename = "plg";
         private List<BackupFile> _cachedBackups = [];
         // private bool _disposed;
 
@@ -16,15 +16,18 @@ namespace PLGPlugin
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _backupDirectory = Path.Combine(Server.GameDirectory, "csgo");
-            DateTime date = DateTime.Now;
-            string dateFormatted = date.ToString("dd/M/yyyy");
-            Server.ExecuteCommand($"mp_backup_round_file {_prefixFilename}_{dateFormatted}");
+        }
+
+        public void SetStandardBackup()
+        {
+            Server.ExecuteCommand($"mp_backup_round_file {_prefixFilename}");
+            Server.ExecuteCommand("mp_backup_round_file_pattern %prefix%_%date%_%time%_%team1%_%team2%_%map%_round%round%_score_%score1%_%score2%.txt");
         }
 
         public void SetBackupPLG(string matchId, string teamName1, string teamName2)
         {
-
             Server.ExecuteCommand($"mp_backup_round_file {_prefixFilename}_{matchId}_{teamName1}_{teamName2}");
+            Server.ExecuteCommand("mp_backup_round_file_pattern %prefix%_%score1%_%score2%.txt");
         }
 
         /// <summary>
@@ -65,19 +68,54 @@ namespace PLGPlugin
             {
                 string fileName = Path.GetFileName(filePath);
 
-                // Parse PLG backup filename: plg_YYYYMMDD_mapname_roundXX.txt or plg_YYYYMMDD_mapname.txt
+                // Parse PLG backup filename: plg_{number}_{team1}_{team2}_{score1}_{score2}.txt
                 Match match = Regex.Match(fileName,
-                    @"^plg_(\d{8})_(.+?)(?:_round(\d+))?\.txt$",
+                    @"^plg_(\d+)_(.+?)_(.+?)_(\d+)_(\d+)\.txt$",
                     RegexOptions.IgnoreCase);
 
                 if (!match.Success)
                 {
-                    return null;
+                    // Fallback: try the old format for backward compatibility
+                    // plg_YYYYMMDD_mapname_roundXX.txt or plg_YYYYMMDD_mapname.txt
+                    Match oldMatch = Regex.Match(fileName,
+                        @"^plg_(\d{8})_(.+?)(?:_round(\d+))?\.txt$",
+                        RegexOptions.IgnoreCase);
+
+                    if (!oldMatch.Success)
+                    {
+                        return null;
+                    }
+
+                    // Handle old format
+                    string date = oldMatch.Groups[1].Value;
+                    string map = oldMatch.Groups[2].Value;
+                    int round = oldMatch.Groups[3].Success ? int.Parse(oldMatch.Groups[3].Value) : 0;
+                    FileInfo fileAllInfos = new(filePath);
+
+                    return new BackupFile
+                    {
+                        FileName = fileName,
+                        FullPath = filePath,
+                        Date = date,
+                        Map = map,
+                        Round = round,
+                        CreatedTime = fileAllInfos.CreationTime,
+                        FileSize = fileAllInfos.Length,
+                        // For old format, we don't have team/score info
+                        Team1 = null,
+                        Team2 = null,
+                        Score1 = null,
+                        Score2 = null,
+                        MatchNumber = null
+                    };
                 }
 
-                string date = match.Groups[1].Value;
-                string map = match.Groups[2].Value;
-                int round = match.Groups[3].Success ? int.Parse(match.Groups[3].Value) : 0;
+                // Handle new format: plg_{number}_{team1}_{team2}_{score1}_{score2}.txt
+                int matchNumber = int.Parse(match.Groups[1].Value);
+                string team1 = match.Groups[2].Value;
+                string team2 = match.Groups[3].Value;
+                int score1 = int.Parse(match.Groups[4].Value);
+                int score2 = int.Parse(match.Groups[5].Value);
 
                 FileInfo fileInfo = new(filePath);
 
@@ -85,11 +123,17 @@ namespace PLGPlugin
                 {
                     FileName = fileName,
                     FullPath = filePath,
-                    Date = date,
-                    Map = map,
-                    Round = round,
+                    MatchNumber = matchNumber,
+                    Team1 = team1,
+                    Team2 = team2,
+                    Score1 = score1,
+                    Score2 = score2,
                     CreatedTime = fileInfo.CreationTime,
-                    FileSize = fileInfo.Length
+                    FileSize = fileInfo.Length,
+                    // For new format, we don't have explicit date/map/round
+                    Date = null,
+                    Map = null,
+                    Round = null
                 };
             }
             catch (Exception ex)
@@ -99,9 +143,55 @@ namespace PLGPlugin
             }
         }
 
+        // private BackupFile? ParseBackupFile(string filePath)
+        // {
+        //     try
+        //     {
+        //         string fileName = Path.GetFileName(filePath);
+        //
+        //         // Parse PLG backup filename: plg_YYYYMMDD_mapname_roundXX.txt or plg_YYYYMMDD_mapname.txt
+        //         Match match = Regex.Match(fileName,
+        //             @"^plg_(\d{8})_(.+?)(?:_round(\d+))?\.txt$",
+        //             RegexOptions.IgnoreCase);
+        //
+        //         if (!match.Success)
+        //         {
+        //             return null;
+        //         }
+        //
+        //         string date = match.Groups[1].Value;
+        //         string map = match.Groups[2].Value;
+        //         int round = match.Groups[3].Success ? int.Parse(match.Groups[3].Value) : 0;
+        //
+        //         FileInfo fileInfo = new(filePath);
+        //
+        //         return new BackupFile
+        //         {
+        //             FileName = fileName,
+        //             FullPath = filePath,
+        //             Date = date,
+        //             Map = map,
+        //             Round = round,
+        //             CreatedTime = fileInfo.CreationTime,
+        //             FileSize = fileInfo.Length
+        //         };
+        //     }
+        //     catch (Exception ex)
+        //     {
+        //         _logger.Warning($"Failed to parse backup file {filePath}: {ex.Message}");
+        //         return null;
+        //     }
+        // }
+
         public List<BackupFile> GetLastBackups()
         {
             return _cachedBackups;
+        }
+
+        public List<BackupFile> GetLastPLGBackups(string matchId)
+        {
+
+            return [.. _cachedBackups.Where(file => file.MatchNumber.ToString() == matchId)];
         }
 
         public BackupManager() : this(LoggingService.Instance)
@@ -113,29 +203,28 @@ namespace PLGPlugin
     {
         public required string FileName { get; set; }
         public required string FullPath { get; set; }
-        public required string Date { get; set; }
-        public required string Map { get; set; }
-        public int Round { get; set; }
         public DateTime CreatedTime { get; set; }
         public long FileSize { get; set; }
 
-        public string FormattedSize => FormatFileSize(FileSize);
-        public string FormattedDate => CreatedTime.ToString("yyyy-MM-dd HH:mm:ss");
+        // Original format properties (plg_YYYYMMDD_mapname_roundXX.txt)
+        public string? Date { get; set; }
+        public string? Map { get; set; }
+        public int? Round { get; set; }
 
-        private static string FormatFileSize(long bytes)
-        {
-            string[] sizes = { "B", "KB", "MB", "GB" };
-            double size = bytes;
-            int order = 0;
+        // New format properties (plg_{number}_{team1}_{team2}_{score1}_{score2}.txt)
+        public int? MatchNumber { get; set; }
+        public string? Team1 { get; set; }
+        public string? Team2 { get; set; }
+        public int? Score1 { get; set; }
+        public int? Score2 { get; set; }
 
-            while (size >= 1024 && order < sizes.Length - 1)
-            {
-                order++;
-                size /= 1024;
-            }
+        // Helper properties for display
+        public bool IsNewFormat => MatchNumber.HasValue;
+        public bool IsOldFormat => !string.IsNullOrEmpty(Date);
 
-            return $"{size:0.##} {sizes[order]}";
-        }
+        public string DisplayName => IsNewFormat
+            ? $"[{MatchNumber}]: {Team1} vs {Team2} ({Score1}-{Score2})"
+            : $"{Date} - {Map}" + (Round > 0 ? $" (Round {Round})" : "");
     }
 }
 
