@@ -98,36 +98,70 @@ namespace PLGPlugin
 
                 ReplyToUserCommand(player, $"{ChatColors.Blue}=== Backups ==={ChatColors.Default}");
 
-                for (int i = 0; i < recentBackups.Count; i++)
+                int maxBackups = Math.Min(3, recentBackups.Count);
+                for (int i = 0; i < maxBackups; i++)
                 {
                     BackupFile backup = recentBackups[i];
                     char indexColor = i == 0 ? ChatColors.Green : ChatColors.White;
-                    string message = $"{i} --- {backup.DisplayName}";
+                    string message = $"{indexColor}{i} {ChatColors.Default} --- {backup.DisplayName}";
 
-                    ReplyToUserCommand(player, backup.DisplayName);
-
-                    // ReplyToUserCommand(player,
-                    //     $"{indexColor}[{i + 1}] {backup.FileName}{ChatColors.Default}");
-                    // ReplyToUserCommand(player,
-                    //     $"    Map: {ChatColors.Yellow}{backup.Map}{ChatColors.Default} | " +
-                    //     $"Round: {ChatColors.Gold}{(backup.Round > 0 ? backup.Round.ToString() : "N/A")}{ChatColors.Default}");
-                    // ReplyToUserCommand(player,
-                    //     $"    Created: {ChatColors.Grey}{backup.FormattedDate}{ChatColors.Default} | " +
-                    //     $"Size: {ChatColors.Grey}{backup.FormattedSize}{ChatColors.Default}");
-                    //
-                    // if (i < recentBackups.Count - 1)
-                    // {
-                    //     ReplyToUserCommand(player, ""); // Empty line separator
-                    // }
+                    ReplyToUserCommand(player, message);
                 }
 
-                ReplyToUserCommand(player, $"{ChatColors.Green}Use '.restore_last' to restore the most recent backup{ChatColors.Default}");
+                ReplyToUserCommand(player, $"{ChatColors.Green}'.restore_last' pour récupérer le dernier round{ChatColors.Default}");
+                ReplyToUserCommand(player, $"{ChatColors.Green}'.restore_at <index>' pour récupérer au round <index>{ChatColors.Default}");
+
             }
             catch (Exception ex)
             {
                 Logger?.Error($"Error listing detailed backups: {ex.Message}", ex);
                 ReplyToUserCommand(player, $"{ChatColors.Red}Error retrieving backup information{ChatColors.Default}");
             }
+        }
+
+        [ConsoleCommand("css_restore_last", "Restore the most recent backup")]
+        public void RestoreLastBackup(CCSPlayerController? player, CommandInfo? command)
+        {
+            if (player == null || _backup == null)
+            {
+                return;
+            }
+
+            if (!CanYouDoThat(player, "@css/generic"))
+            {
+                ReplyToUserCommand(player, $"{ChatColors.Red}Vous n'avez pas la permission d'utiliser cette commande{ChatColors.Default}");
+                return;
+            }
+
+            _backup.RefreshBackupCache();
+            _backup.RestoreMostRecent();
+            ReplyToUserCommand(player, $"{ChatColors.Green}Backup le plus récent restauré{ChatColors.Default}");
+        }
+
+        [ConsoleCommand("css_restore", "Restore backup at specific index")]
+        public void RestoreBackupAtIndex(CCSPlayerController? player, CommandInfo command)
+        {
+            if (player == null || _backup == null)
+            {
+                return;
+            }
+
+            if (!CanYouDoThat(player, "@css/generic"))
+            {
+                ReplyToUserCommand(player, $"{ChatColors.Red}Vous n'avez pas la permission d'utiliser cette commande{ChatColors.Default}");
+                return;
+            }
+
+            string indexArg = command.ArgByIndex(1);
+            if (string.IsNullOrEmpty(indexArg) || !int.TryParse(indexArg, out int index))
+            {
+                ReplyToUserCommand(player, $"{ChatColors.Red}Index invalide. Utilisez: .restore <index>{ChatColors.Default}");
+                return;
+            }
+
+            _backup.RefreshBackupCache();
+            _backup.RestoreAtIndex(index);
+            ReplyToUserCommand(player, $"{ChatColors.Green}Backup à l'index {index} restauré{ChatColors.Default}");
         }
 
         [ConsoleCommand("css_match_status", "Get the status of match manager")]

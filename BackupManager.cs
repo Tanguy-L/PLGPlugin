@@ -10,12 +10,18 @@ namespace PLGPlugin
         private readonly string _backupDirectory;
         private readonly string _prefixFilename = "plg";
         private List<BackupFile> _cachedBackups = [];
+        private string? _matchId;
         // private bool _disposed;
 
         public BackupManager(ILoggingService logger)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _backupDirectory = Path.Combine(Server.GameDirectory, "csgo");
+        }
+
+        public void SetMatchId(string matchId)
+        {
+            _matchId = matchId;
         }
 
         public void SetStandardBackup()
@@ -50,7 +56,8 @@ namespace PLGPlugin
                     .Select(ParseBackupFile)
                     .Where(b => b != null)
                     .Cast<BackupFile>()
-                    .OrderBy(b => b.CreatedTime)
+                    .Where(FilterBackupFile)
+                    .OrderByDescending(b => b.CreatedTime)
                     .ToList();
 
                 _cachedBackups = backupFiles;
@@ -60,6 +67,17 @@ namespace PLGPlugin
             {
                 _logger.Error($"Error refreshing backup cache: {ex.Message}", ex);
             }
+        }
+
+        private bool FilterBackupFile(BackupFile backup)
+        {
+            if (!string.IsNullOrEmpty(_matchId))
+            {
+                return backup.MatchNumber?.ToString() == _matchId;
+            }
+
+            string today = DateTime.Now.ToString("yyyyMMdd");
+            return backup.Date == today || backup.CreatedTime.Date == DateTime.Today;
         }
 
         private BackupFile? ParseBackupFile(string filePath)
@@ -143,46 +161,6 @@ namespace PLGPlugin
             }
         }
 
-        // private BackupFile? ParseBackupFile(string filePath)
-        // {
-        //     try
-        //     {
-        //         string fileName = Path.GetFileName(filePath);
-        //
-        //         // Parse PLG backup filename: plg_YYYYMMDD_mapname_roundXX.txt or plg_YYYYMMDD_mapname.txt
-        //         Match match = Regex.Match(fileName,
-        //             @"^plg_(\d{8})_(.+?)(?:_round(\d+))?\.txt$",
-        //             RegexOptions.IgnoreCase);
-        //
-        //         if (!match.Success)
-        //         {
-        //             return null;
-        //         }
-        //
-        //         string date = match.Groups[1].Value;
-        //         string map = match.Groups[2].Value;
-        //         int round = match.Groups[3].Success ? int.Parse(match.Groups[3].Value) : 0;
-        //
-        //         FileInfo fileInfo = new(filePath);
-        //
-        //         return new BackupFile
-        //         {
-        //             FileName = fileName,
-        //             FullPath = filePath,
-        //             Date = date,
-        //             Map = map,
-        //             Round = round,
-        //             CreatedTime = fileInfo.CreationTime,
-        //             FileSize = fileInfo.Length
-        //         };
-        //     }
-        //     catch (Exception ex)
-        //     {
-        //         _logger.Warning($"Failed to parse backup file {filePath}: {ex.Message}");
-        //         return null;
-        //     }
-        // }
-
         public List<BackupFile> GetLastBackups()
         {
             return _cachedBackups;
@@ -192,6 +170,34 @@ namespace PLGPlugin
         {
 
             return [.. _cachedBackups.Where(file => file.MatchNumber.ToString() == matchId)];
+        }
+
+        public void RestoreMostRecent()
+        {
+            if (_cachedBackups.Count > 0)
+            {
+                BackupFile mostRecent = _cachedBackups[0];
+                Server.ExecuteCommand($"mp_backup_restore_load_file {mostRecent.FileName}");
+                _logger.Info($"Restored most recent backup: {mostRecent.FileName}");
+            }
+            else
+            {
+                _logger.Warning("No backup files available to restore");
+            }
+        }
+
+        public void RestoreAtIndex(int index)
+        {
+            if (index >= 0 && index < _cachedBackups.Count)
+            {
+                BackupFile backup = _cachedBackups[index];
+                Server.ExecuteCommand($"mp_backup_restore_load_file {backup.FileName}");
+                _logger.Info($"Restored backup at index {index}: {backup.FileName}");
+            }
+            else
+            {
+                _logger.Warning($"Invalid backup index: {index}. Available range: 0-{_cachedBackups.Count - 1}");
+            }
         }
 
         public BackupManager() : this(LoggingService.Instance)
@@ -227,4 +233,3 @@ namespace PLGPlugin
             : $"{Date} - {Map}" + (Round > 0 ? $" (Round {Round})" : "");
     }
 }
-

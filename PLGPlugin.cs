@@ -5,6 +5,7 @@ using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Commands;
 using CounterStrikeSharp.API.Modules.Events;
 using PLGPlugin.Interfaces;
+using CounterStrikeSharp.API.Modules.Utils;
 
 namespace PLGPlugin
 {
@@ -151,6 +152,7 @@ namespace PLGPlugin
                 { ".match_off", MatchManagerOff },
                 { ".match_on", MatchManagerOn },
                 { ".lbackups", ListDetailedBackups },
+                { ".restore_last", RestoreLastBackup},
                 { ".test", OnTestCommand },
             };
 
@@ -188,12 +190,32 @@ namespace PLGPlugin
                         return HookResult.Continue;
                     }
 
-                    if (message.StartsWith(".restore"))
+                    if (message.StartsWith(".restore_at"))
                     {
                         string messageCommandArg =
                             parts.Length > 1 ? string.Join(' ', parts.Skip(1)) : string.Empty;
 
-                        HandleRestore(playerController, messageCommandArg);
+                        if (string.IsNullOrEmpty(messageCommandArg))
+                        {
+                            ReplyToUserCommand(playerController, $"{ChatColors.Red}Index manquant. Utilisez: .restore <index>{ChatColors.Default}");
+                            return HookResult.Continue;
+                        }
+
+                        if (!int.TryParse(messageCommandArg, out int indexRestore))
+                        {
+                            ReplyToUserCommand(playerController, $"{ChatColors.Red}Index invalide. Utilisez: .restore <index>{ChatColors.Default}");
+                            return HookResult.Continue;
+                        }
+
+                        if (!CanYouDoThat(playerController, "@css/generic"))
+                        {
+                            ReplyToUserCommand(playerController, $"{ChatColors.Red}Vous n'avez pas la permission d'utiliser cette commande{ChatColors.Default}");
+                            return HookResult.Continue;
+                        }
+
+                        _backup?.RefreshBackupCache();
+                        _backup?.RestoreAtIndex(indexRestore);
+                        ReplyToUserCommand(playerController, $"{ChatColors.Green}Backup à l'index {indexRestore} restauré{ChatColors.Default}");
                         return HookResult.Continue;
                     }
 
