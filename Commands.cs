@@ -398,9 +398,24 @@ namespace PLGPlugin
                 return;
             }
 
+            if (_backup == null)
+            {
+                return;
+            }
+
+            if (_matchManager != null)
+            {
+                ReplyToUserCommand(player, "Impossible de lancer car le match manager est on");
+                ReplyToUserCommand(player, ".match pour lancer avec le MatchManager");
+                ReplyToUserCommand(player, "OU .match_off pour désactiver le MatchManager");
+                return;
+            }
+
             StartLive();
 
             RecordTheDemo();
+
+            _backup.SetStandardBackup();
 
             ReplyToUserCommand(player, $"[{ChatColors.Green}Live config started !{ChatColors.Default}]");
         }

@@ -230,6 +230,6 @@ namespace PLGPlugin
 
         public string DisplayName => IsNewFormat
             ? $"[{MatchNumber}]: {Team1} vs {Team2} ({Score1}-{Score2})"
-            : $"{Date} - {Map}" + (Round > 0 ? $" (Round {Round})" : "");
+            : $"{CreatedTime.ToString("HH:mm:ss")} - {Map}" + (Round > 0 ? $" (Round {Round})" : "");
     }
 }
