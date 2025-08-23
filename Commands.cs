@@ -16,7 +16,7 @@ namespace PLGPlugin
                 Logger?.Error("player manager is not set");
                 return;
             }
-            if (_database == null)
+            if (_database == null || !_database.IsAvailable)
             {
                 Logger?.Error("database is not set");
                 return;
@@ -550,7 +550,7 @@ namespace PLGPlugin
             {
                 return;
             }
-            if (player == null || !player.IsValid || _matchManager == null || _database == null || _playerManager == null || _teams == null)
+            if (player == null || !player.IsValid || _matchManager == null || _database == null || !_database.IsAvailable || _playerManager == null || _teams == null)
             {
                 Logger.Error("No match manager or database or player manager");
                 return;
@@ -615,7 +615,7 @@ namespace PLGPlugin
                 return;
             }
 
-            if (_database == null || _playerManager == null || _matchManager == null || _teams == null)
+            if (_database == null || !_database.IsAvailable || _playerManager == null || _matchManager == null || _teams == null)
             {
                 Server.ExecuteCommand("mp_swapteams;mp_restartgame 1");
                 return;
@@ -703,7 +703,7 @@ namespace PLGPlugin
                 return;
             }
 
-            if (_database == null)
+            if (_database == null || !_database.IsAvailable)
             {
                 return;
             }

@@ -15,7 +15,7 @@ namespace PLGPlugin
 
         public async Task HandleUpdateSmoke(CCSPlayerController playerController, string commandArg)
         {
-            if (_database == null || _playerManager == null)
+            if (_database == null || !_database.IsAvailable || _playerManager == null)
             {
                 return;
             }
@@ -195,7 +195,7 @@ namespace PLGPlugin
                 throw new InvalidOperationException("Logger must be initialized before initializing the match manager.");
             }
 
-            if (_database != null && _playerManager != null && _backup != null)
+            if (_database != null && _database.IsAvailable && _playerManager != null && _backup != null)
             {
                 try
                 {
@@ -261,7 +261,7 @@ namespace PLGPlugin
             {
                 // More descriptive error that indicates exactly what's missing
                 Logger?.Error($"Cannot initialize match manager. Missing dependencies: " +
-                             $"{(_database == null ? "database " : "")}" +
+                             $"{(_database == null || !_database.IsAvailable ? "database " : "")}" +
                              $"{(_playerManager == null ? "playerManager " : "")}" +
                              $"{(_backup == null ? "backup " : "")}" +
                              $"{(_teams == null ? "teams" : "")}");

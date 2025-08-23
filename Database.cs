@@ -3,23 +3,35 @@ using CounterStrikeSharp.API.Modules.Utils;
 using Microsoft.Extensions.Logging;
 using PLGPlugin.Interfaces;
 using MySqlConnector;
-using CounterStrikeSharp.API;
 
 namespace PLGPlugin
 {
     public class Database : IDatabase
     {
         private readonly ILogger<Database> _logger;
-        private readonly string _connectionString;
+        private readonly string? _connectionString;
         private readonly MySQLConfig _config;
         private bool _disposed;
+
+        public bool IsAvailable { get; }
 
         public Database(MySQLConfig config)
         {
             ILoggerFactory loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
             _config = config ?? throw new ArgumentNullException(nameof(config));
             _logger = loggerFactory.CreateLogger<Database>();
-            _connectionString = BuildDatabaseConnectionString();
+
+            try
+            {
+                _connectionString = BuildDatabaseConnectionString();
+                IsAvailable = true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning($"Database is not available: {ex.Message}");
+                _connectionString = null;
+                IsAvailable = false;
+            }
         }
 
         public void Dispose()
@@ -31,7 +43,6 @@ namespace PLGPlugin
             }
         }
 
-
         private string BuildDatabaseConnectionString()
         {
             if (
@@ -42,7 +53,7 @@ namespace PLGPlugin
                 || _config.Port == 0
             )
             {
-                throw new InvalidOperationException("Database is not set in the config file");
+                throw new InvalidOperationException("Database configuration is incomplete");
             }
 
             MySqlConnectionStringBuilder builder = new()
@@ -58,73 +69,86 @@ namespace PLGPlugin
             return builder.ConnectionString;
         }
 
+        // Helper method to check if database operations should proceed
+        private bool CanExecuteDatabaseOperation()
+        {
+            if (!IsAvailable || string.IsNullOrEmpty(_connectionString))
+            {
+                _logger.LogWarning("Database operation skipped - database not available");
+                return false;
+            }
+            return true;
+        }
+
         public async Task UpdatePlayersStats(IPlayerManager playerManager, string matchId, ITeamManager teamManager)
         {
-            await using MySqlConnection connection = new(_connectionString);
-            _logger.LogInformation("UPDATING PLAYER STATS");
+            if (!CanExecuteDatabaseOperation()) return;
 
-            if (playerManager == null)
+            try
             {
-                _logger.LogWarning("No players stats found");
-                return;
-            }
+                await using MySqlConnection connection = new(_connectionString);
+                _logger.LogInformation("UPDATING PLAYER STATS");
 
-            foreach (PlgPlayer plgPlayer in playerManager.GetAllPlayers())
-            {
-                _logger.LogInformation("update player stats");
-                if (plgPlayer == null)
+                if (playerManager == null)
                 {
-                    continue;
+                    _logger.LogWarning("No players stats found");
+                    return;
                 }
 
-                string sqlQuery = $@"
-                    INSERT INTO match_stats_players (
-                        matchid, mapnumber, member_id, team_id, kills, deaths, damage, assists,
-                        enemy5ks, enemy4ks, enemy3ks, enemy2ks, utility_count, utility_damage,
-                        utility_successes, utility_enemies, flash_count, flash_successes,
-                        health_points_removed_total, health_points_dealt_total, shots_fired_total,
-                        shots_on_target_total, v1_count, v1_wins, v2_count, v2_wins, entry_count, entry_wins,
-                        equipment_value, money_saved, kill_reward, live_time, head_shot_kills,
-                        cash_earned, enemies_flashed)
-                    VALUES (
-                        @match_id, @map_number, @member_id, @team_id, @kills, @deaths, @damage, @assists,
-                        @enemy5ks, @enemy4ks, @enemy3ks, @enemy2ks, @utility_count, @utility_damage,
-                        @utility_successes, @utility_enemies, @flash_count, @flash_successes,
-                        @health_points_removed_total, @health_points_dealt_total, @shots_fired_total,
-                        @shots_on_target_total, @v1_count, @v1_wins, @v2_count, @v2_wins, @entry_count,
-                        @entry_wins, @equipment_value, @money_saved, @kill_reward, @live_time,
-                        @head_shot_kills, @cash_earned, @enemies_flashed)
-                    ON DUPLICATE KEY UPDATE
-                        team_id = @team_id, kills = @kills, deaths = @deaths, damage = @damage,
-                        assists = @assists, enemy5ks = @enemy5ks, enemy4ks = @enemy4ks, enemy3ks = @enemy3ks,
-                        enemy2ks = @enemy2ks, utility_count = @utility_count, utility_damage = @utility_damage,
-                        utility_successes = @utility_successes, utility_enemies = @utility_enemies,
-                        flash_count = @flash_count, flash_successes = @flash_successes,
-                        health_points_removed_total = @health_points_removed_total,
-                        health_points_dealt_total = @health_points_dealt_total,
-                        shots_fired_total = @shots_fired_total, shots_on_target_total = @shots_on_target_total,
-                        v1_count = @v1_count, v1_wins = @v1_wins, v2_count = @v2_count, v2_wins = @v2_wins,
-                        entry_count = @entry_count, entry_wins = @entry_wins,
-                        equipment_value = @equipment_value, money_saved = @money_saved,
-                        kill_reward = @kill_reward, live_time = @live_time, head_shot_kills = @head_shot_kills,
-                        cash_earned = @cash_earned, enemies_flashed = @enemies_flashed";
-
-                Dictionary<string, object>? playerStats = plgPlayer.Stats;
-
-                TeamPLG? team = teamManager.GetTeamByName(plgPlayer.TeamName);
-                _logger.LogInformation(team.Id.ToString());
-                if (playerStats == null || team == null)
+                foreach (PlgPlayer plgPlayer in playerManager.GetAllPlayers())
                 {
-                    _logger.LogWarning($"No stats found for player {plgPlayer.MemberId}");
-                    continue;
-                }
+                    _logger.LogInformation("update player stats");
+                    if (plgPlayer == null)
+                    {
+                        continue;
+                    }
 
-                string? memberId = plgPlayer.MemberId;
+                    string sqlQuery = $@"
+                        INSERT INTO match_stats_players (
+                            matchid, mapnumber, member_id, team_id, kills, deaths, damage, assists,
+                            enemy5ks, enemy4ks, enemy3ks, enemy2ks, utility_count, utility_damage,
+                            utility_successes, utility_enemies, flash_count, flash_successes,
+                            health_points_removed_total, health_points_dealt_total, shots_fired_total,
+                            shots_on_target_total, v1_count, v1_wins, v2_count, v2_wins, entry_count, entry_wins,
+                            equipment_value, money_saved, kill_reward, live_time, head_shot_kills,
+                            cash_earned, enemies_flashed)
+                        VALUES (
+                            @match_id, @map_number, @member_id, @team_id, @kills, @deaths, @damage, @assists,
+                            @enemy5ks, @enemy4ks, @enemy3ks, @enemy2ks, @utility_count, @utility_damage,
+                            @utility_successes, @utility_enemies, @flash_count, @flash_successes,
+                            @health_points_removed_total, @health_points_dealt_total, @shots_fired_total,
+                            @shots_on_target_total, @v1_count, @v1_wins, @v2_count, @v2_wins, @entry_count,
+                            @entry_wins, @equipment_value, @money_saved, @kill_reward, @live_time,
+                            @head_shot_kills, @cash_earned, @enemies_flashed)
+                        ON DUPLICATE KEY UPDATE
+                            team_id = @team_id, kills = @kills, deaths = @deaths, damage = @damage,
+                            assists = @assists, enemy5ks = @enemy5ks, enemy4ks = @enemy4ks, enemy3ks = @enemy3ks,
+                            enemy2ks = @enemy2ks, utility_count = @utility_count, utility_damage = @utility_damage,
+                            utility_successes = @utility_successes, utility_enemies = @utility_enemies,
+                            flash_count = @flash_count, flash_successes = @flash_successes,
+                            health_points_removed_total = @health_points_removed_total,
+                            health_points_dealt_total = @health_points_dealt_total,
+                            shots_fired_total = @shots_fired_total, shots_on_target_total = @shots_on_target_total,
+                            v1_count = @v1_count, v1_wins = @v1_wins, v2_count = @v2_count, v2_wins = @v2_wins,
+                            entry_count = @entry_count, entry_wins = @entry_wins,
+                            equipment_value = @equipment_value, money_saved = @money_saved,
+                            kill_reward = @kill_reward, live_time = @live_time, head_shot_kills = @head_shot_kills,
+                            cash_earned = @cash_earned, enemies_flashed = @enemies_flashed";
 
-                _logger.LogInformation($"player ---- {plgPlayer.PlayerName} ----- {team.Id.ToString()} ---- {matchId}");
+                    Dictionary<string, object>? playerStats = plgPlayer.Stats;
 
-                try
-                {
+                    TeamPLG? team = teamManager.GetTeamByName(plgPlayer.TeamName);
+                    _logger.LogInformation(team.Id.ToString());
+                    if (playerStats == null || team == null)
+                    {
+                        _logger.LogWarning($"No stats found for player {plgPlayer.MemberId}");
+                        continue;
+                    }
+
+                    string? memberId = plgPlayer.MemberId;
+
+                    _logger.LogInformation($"player ---- {plgPlayer.PlayerName} ----- {team.Id.ToString()} ---- {matchId}");
+
                     _ = await connection.ExecuteAsync(sqlQuery,
                     new
                     {
@@ -166,18 +190,21 @@ namespace PLGPlugin
                         enemies_flashed = playerStats["EnemiesFlashed"]
                     });
                 }
-                catch (Exception ex)
-                {
-                    string message = $"Error : {ex}";
-                    _logger.LogError(message);
-                    throw;
-                }
-
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating player stats - database operation failed");
+                // Don't rethrow - let the application continue without database
             }
         }
 
         public async Task<List<TeamPLG>> GetTeamsByHostname(string hostname)
         {
+            if (!CanExecuteDatabaseOperation())
+            {
+                return []; // Return empty list instead of crashing
+            }
+
             try
             {
                 await using MySqlConnection connection = new MySqlConnection(_connectionString);
@@ -214,19 +241,24 @@ namespace PLGPlugin
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error while getting teams by Hostname");
-                throw;
+                _logger.LogError(ex, "Error while getting teams by Hostname - returning empty list");
+                return new List<TeamPLG>(); // Return empty list instead of crashing
             }
         }
 
         public async Task UpdateMatchStats(string id, TeamPLG team1, TeamPLG team2)
         {
+            if (!CanExecuteDatabaseOperation())
+            {
+                return;
+            }
+
             try
             {
                 if (team1 == null || team2 == null)
                 {
-                    Exception exception = new("Teams not found");
-                    throw exception;
+                    _logger.LogWarning("Teams not found for match stats update");
+                    return;
                 }
 
                 int scoreTeam1 = team1.Score;
@@ -254,20 +286,27 @@ namespace PLGPlugin
 
                 if (rowsAffected == 0)
                 {
-                    throw new Exception($"Update failed: No match found with ID {id}");
+                    _logger.LogWarning($"Update failed: No match found with ID {id}");
                 }
-
-                _logger.LogInformation($"Match {id} updated successfully");
+                else
+                {
+                    _logger.LogInformation($"Match {id} updated successfully");
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error while openning the database connection");
-                throw;
+                _logger.LogError(ex, "Error while updating match stats - operation skipped");
+                // Don't rethrow - let the application continue
             }
         }
 
-        public async Task<string> NewMatch(string map, int teamId1, int teamId2)
+        public async Task<string?> NewMatch(string map, int teamId1, int teamId2)
         {
+            if (!CanExecuteDatabaseOperation())
+            {
+                return null; // Return null instead of crashing
+            }
+
             try
             {
                 await using MySqlConnection connection = new(_connectionString);
@@ -314,7 +353,7 @@ namespace PLGPlugin
                         startTime = DateTime.Now
                     };
 
-                    await connection.ExecuteAsync(mapQuery, mapParameters, transaction);
+                    _ = await connection.ExecuteAsync(mapQuery, mapParameters, transaction);
 
                     // Commit the transaction
                     await transaction.CommitAsync();
@@ -330,66 +369,98 @@ namespace PLGPlugin
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error while creating new match");
-                throw;
+                _logger.LogError(ex, "Error while creating new match - returning null");
+                return null; // Return null instead of crashing
             }
         }
 
-        private async Task<MySqlConnection> GetOpenConnectionAsync()
+        private async Task<MySqlConnection?> GetOpenConnectionAsync()
         {
+            if (!CanExecuteDatabaseOperation())
+            {
+                return null;
+            }
+
             try
             {
                 MySqlConnection connection = new(_connectionString);
                 await connection.OpenAsync();
                 return connection;
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
-                _logger.LogError(ex, "Error while openning the database connection");
-                throw;
+                _logger.LogError(ex, "Error while opening database connection");
+                return null; // Return null instead of throwing
             }
         }
 
         public async Task SetSmoke(ulong steamId, string color)
         {
+            if (!CanExecuteDatabaseOperation())
+            {
+                return;
+            }
+
             try
             {
-                await using MySqlConnection connection = await GetOpenConnectionAsync();
+                await using MySqlConnection? connection = await GetOpenConnectionAsync();
+                if (connection == null)
+                {
+                    return;
+                }
 
-                string query =
-                    $@"UPDATE members SET smoke_color = '{color}' WHERE steam_id = {steamId}";
+                string query = $@"UPDATE members SET smoke_color = '{color}' WHERE steam_id = {steamId}";
                 _ = await connection.ExecuteAsync(query);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Database connection error on SetSmoke");
+                _logger.LogError(ex, "Database connection error on SetSmoke - operation skipped");
             }
         }
 
         public async Task JoinTeam(string memberId, int? idTeam)
         {
+            if (!CanExecuteDatabaseOperation())
+            {
+                return;
+            }
+
             try
             {
-                await using MySqlConnection connection = await GetOpenConnectionAsync();
+                await using MySqlConnection? connection = await GetOpenConnectionAsync();
+                if (connection == null)
+                {
+                    return;
+                }
 
                 string query = @"
             INSERT INTO team_members (member_id, team_id) 
             VALUES (@MemberId, @IdTeam)
             ON DUPLICATE KEY UPDATE team_id = @IdTeam";
 
-                await connection.ExecuteAsync(query, new { MemberId = memberId, IdTeam = idTeam });
+                _ = await connection.ExecuteAsync(query, new { MemberId = memberId, IdTeam = idTeam });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Database connection error on JoinTeam");
+                _logger.LogError(ex, "Database connection error on JoinTeam - operation skipped");
             }
         }
 
         public async Task CreatePlayerInDB(string name, ulong steamID)
         {
+            if (!CanExecuteDatabaseOperation())
+            {
+                return;
+            }
+
             try
             {
-                await using MySqlConnection connection = await GetOpenConnectionAsync();
+                await using MySqlConnection? connection = await GetOpenConnectionAsync();
+                if (connection == null)
+                {
+                    return;
+                }
+
                 string query =
                     @"INSERT INTO plg.members (steam_id, weight, is_logged_in, smoke_color, name)
                              VALUES (@SteamID, @Weight, @IsLoggedIn, @SmokeColor, @Name);
@@ -404,18 +475,27 @@ namespace PLGPlugin
                 };
                 _ = await connection.ExecuteAsync(query, parameters);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                Console.WriteLine($"Error creating player in DB: {steamID} -- {name}");
-                throw;
+                _logger.LogError(ex, $"Error creating player in DB: {steamID} -- {name} - operation skipped");
             }
         }
 
         public async Task<PlayerFromDB?> GetPlayerById(ulong steamId)
         {
+            if (!CanExecuteDatabaseOperation())
+            {
+                return null; // Return null instead of crashing
+            }
+
             try
             {
-                await using MySqlConnection connection = await GetOpenConnectionAsync();
+                await using MySqlConnection? connection = await GetOpenConnectionAsync();
+                if (connection == null)
+                {
+                    return null;
+                }
+
                 string query =
                     $@"SELECT
                      m.discord_id DiscordId,
@@ -447,11 +527,8 @@ namespace PLGPlugin
             }
             catch (Exception ex)
             {
-                Server.NextFrame(() =>
-                {
-                    Console.WriteLine($"Error retrieving player by ID {steamId}: {ex.Message}");
-                });
-                throw;
+                _logger.LogError(ex, $"Error retrieving player by ID {steamId} - returning null");
+                return null; // Return null instead of crashing
             }
         }
     }

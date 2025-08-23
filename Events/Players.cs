@@ -37,7 +37,7 @@ namespace PLGPlugin
                 return HookResult.Continue;
             }
 
-            if (_database == null)
+            if (_database == null || !_database.IsAvailable)
             {
                 Logger.Warning("DB is null in OnPlayerConnectFull");
                 ReplyToUserCommand(playerId, $"Bienvenue dans le serveur PLG !");

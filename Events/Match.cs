@@ -10,9 +10,6 @@ namespace PLGPlugin
 
         private HookResult OnRoundPostStart(EventRoundPoststart @event, GameEventInfo info)
         {
-            string map = Server.MapName;
-            DateTime date = DateTime.Now;
-
             if (_matchManager != null && _playerManager != null && _matchManager.State == MatchManager.MatchState.Ended)
             {
                 _matchManager = null;
@@ -89,7 +86,7 @@ namespace PLGPlugin
                 return HookResult.Continue;
             }
 
-            if (_database == null)
+            if (_database == null || !_database.IsAvailable)
             {
                 Logger.Warning("No DB");
                 return HookResult.Continue;

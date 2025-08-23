@@ -1,4 +1,4 @@
-﻿using System.Text.Json.Serialization;
+using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
@@ -75,11 +75,10 @@ namespace PLGPlugin
             // Dispose
 
             // Unload all managers
-            // _playerManager?.Dispose();
-            // _database?.Dispose();
-            // _backup?.Dispose();
-            // _matchManager?.Dispose();
-            // _teams?.Dispose();
+            _playerManager?.Dispose();
+            _database?.Dispose();
+            _matchManager?.Dispose();
+            _teams?.Dispose();
             _sounds?.Dispose();
         }
 
@@ -102,7 +101,7 @@ namespace PLGPlugin
             _database = new(Config.MySQLConfig);
 
             // loading basics
-            if (_database != null)
+            if (_database != null && _database.IsAvailable)
             {
                 _playerManager = new(_database, Logger);
                 _teams = new();
@@ -119,7 +118,7 @@ namespace PLGPlugin
             if (Logger != null)
             {
                 Logger.Info("-------- PLG ---------");
-                Logger.Info(_database != null ? "Database connected" : "No database");
+                Logger.Info(_database != null && _database.IsAvailable ? "Database connected" : "No database");
                 Logger.Info(_playerManager != null ? "Player manager created" : "No player manager");
                 Logger.Info(_backup != null ? "Backup manager created" : "No backup manager");
                 Logger.Info(_teams != null ? "Team manager created" : "No team manager");
@@ -166,7 +165,7 @@ namespace PLGPlugin
                     int index = @event.Userid + 1;
                     CCSPlayerController? playerController = Utilities.GetPlayerFromIndex(index);
 
-                    if (playerController == null || _database == null || _playerManager == null)
+                    if (playerController == null || _database == null || !_database.IsAvailable || _playerManager == null)
                     {
                         return HookResult.Continue;
                     }
