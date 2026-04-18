@@ -1,7 +1,7 @@
 using CounterStrikeSharp.API;
-using PLGPlugin.Interfaces;
 using CounterStrikeSharp.API.Modules.Cvars;
 using CounterStrikeSharp.API.Modules.Utils;
+using PLGPlugin.Interfaces;
 
 namespace PLGPlugin
 {
@@ -16,7 +16,7 @@ namespace PLGPlugin
             WaitingForSideChoice,
             Live,
             Paused,
-            Ended
+            Ended,
         }
 
         // ------------
@@ -27,13 +27,6 @@ namespace PLGPlugin
         private readonly ILoggingService _logger;
         private readonly PlgConfig _config;
         private readonly BackupManager _backup;
-
-        // duplicate keys from PLGPlugin instance
-        // Because BroadcastMessage was not accessible
-        // private static readonly string ChatPrefix =
-        //     $"[{ChatColors.Blue}P{ChatColors.Yellow}L{ChatColors.Red}G{ChatColors.Default}]";
-        // private static readonly string AdminChatPrefix =
-        //     $"[{ChatColors.Red}ADMIN{ChatColors.Default}]";
 
         public MatchState State { get; set; }
         private List<bool>? _teamsReady;
@@ -48,7 +41,7 @@ namespace PLGPlugin
         private int? _idTeam1;
         private int? _idTeam2;
         private bool _disposed;
-        // private TeamManager? _teamManager;
+
         // 0 = Terrorist and 1 = CT
 
         public MatchManager(
@@ -63,13 +56,13 @@ namespace PLGPlugin
             // ---------------
             // INIT DEPENDENCY INJECTIONS
             _database = database ?? throw new ArgumentNullException(nameof(database));
-            _playerManager = playerManager ?? throw new ArgumentNullException(nameof(playerManager));
+            _playerManager =
+                playerManager ?? throw new ArgumentNullException(nameof(playerManager));
             _teamManager = teamManager ?? throw new ArgumentNullException(nameof(teamManager));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _config = config ?? throw new ArgumentNullException(nameof(config));
             _backup = backup ?? throw new ArgumentNullException(nameof(backup));
             _pathConfig = config.CfgFolder;
-
 
             _logger.Info("MatchManager created");
 
@@ -102,8 +95,6 @@ namespace PLGPlugin
 
             throw new ObjectDisposedException(nameof(MatchManager));
         }
-
-
 
         public void Dispose()
         {
@@ -146,10 +137,7 @@ namespace PLGPlugin
             {
                 index = 0;
             }
-            if (index == -1)
-            {
-
-            }
+            if (index == -1) { }
 
             // _teamsReady is an [false, false]
             // But it can be null
@@ -179,7 +167,9 @@ namespace PLGPlugin
 
             try
             {
-                string? directoryPath = Path.GetDirectoryName(Path.Join(Server.GameDirectory + "/csgo/", "/demos"));
+                string? directoryPath = Path.GetDirectoryName(
+                    Path.Join(Server.GameDirectory + "/csgo/", "/demos")
+                );
                 if (directoryPath != null)
                 {
                     if (!Directory.Exists(directoryPath))
@@ -201,7 +191,8 @@ namespace PLGPlugin
         {
             int count = 0;
             int totalHealth = 0;
-            List<CounterStrikeSharp.API.Core.CCSPlayerController> allPlayers = Utilities.GetPlayers();
+            List<CounterStrikeSharp.API.Core.CCSPlayerController> allPlayers =
+                Utilities.GetPlayers();
             foreach (CounterStrikeSharp.API.Core.CCSPlayerController player in allPlayers)
             {
                 if (player.IsValid)
@@ -215,7 +206,6 @@ namespace PLGPlugin
 
                         totalHealth += player.PlayerPawn.Value!.Health;
                     }
-
                 }
             }
             return (count, totalHealth);
@@ -282,7 +272,10 @@ namespace PLGPlugin
             }
             else
             {
-                sideWinner = ctHealth > tHealth ? CsTeam.CounterTerrorist : tHealth > ctHealth ? CsTeam.Terrorist : CsTeam.CounterTerrorist;
+                sideWinner =
+                    ctHealth > tHealth ? CsTeam.CounterTerrorist
+                    : tHealth > ctHealth ? CsTeam.Terrorist
+                    : CsTeam.CounterTerrorist;
             }
 
             TeamPLG? winner = _teamManager.GetTeamBySide(sideWinner);
@@ -331,7 +324,6 @@ namespace PLGPlugin
 
             await Task.Run(async () =>
             {
-
                 _mapName = mapName;
                 string matchId = await _database.NewMatch(mapName, _idTeam1.Value, _idTeam2.Value);
                 _matchId = matchId;
@@ -358,7 +350,9 @@ namespace PLGPlugin
                     else
                     {
                         StartKnife();
-                        Console.WriteLine($"Le match démarre sur {mapName} et avec les équipes {team1Name} et {team2Name}");
+                        Console.WriteLine(
+                            $"Le match démarre sur {mapName} et avec les équipes {team1Name} et {team2Name}"
+                        );
                         Console.WriteLine($"Place à la boucherie");
                     }
                 });
@@ -367,7 +361,10 @@ namespace PLGPlugin
 
         public void GoGoGo()
         {
-            if (State == MatchState.WaitingForSideChoice || (State == MatchState.Setup && _skipKnife))
+            if (
+                State == MatchState.WaitingForSideChoice
+                || (State == MatchState.Setup && _skipKnife)
+            )
             {
                 State = MatchState.Live;
                 StartLive();
@@ -381,7 +378,13 @@ namespace PLGPlugin
         // to refactor
         public async Task UpdateStatsMatch()
         {
-            if (_teamManager != null && _matchId != null && _teamManager != null && _idTeam1 != null && _idTeam2 != null)
+            if (
+                _teamManager != null
+                && _matchId != null
+                && _teamManager != null
+                && _idTeam1 != null
+                && _idTeam2 != null
+            )
             {
                 TeamPLG? team1 = _teamManager.GetTeamById(_idTeam1.Value);
                 TeamPLG? team2 = _teamManager.GetTeamById(_idTeam2.Value);
@@ -425,5 +428,4 @@ namespace PLGPlugin
             ExecCfg("match.cfg");
         }
     }
-
 }
